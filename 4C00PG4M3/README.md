@@ -27,16 +27,6 @@ Players collaborate over a local network to solve puzzles that require timing, c
 * Clear UI prompts 
 ---
 
-## Documentation
-
-For full documentation, technical details, and design notes, visit the Notion workspace:
-
-👉 https://www.notion.so/Produzioni-Criminali-2191a0f2a1cf804fb2f3c8bbce2de5be
-
----
-
-
-
 ## Future Improvements
 
 * Add more puzzle modules and increase the variety of mechanics
