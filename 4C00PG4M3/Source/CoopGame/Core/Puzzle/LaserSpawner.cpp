@@ -6,6 +6,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Math/UnrealMathUtility.h"
 #include "CoopGame/Core/Components/LaserMovementComponent.h"
+#include "UObject/FastReferenceCollector.h"
 
 // Sets default values
 ALaserSpawner::ALaserSpawner()
@@ -39,6 +40,18 @@ void ALaserSpawner::BeginPlay()
 			true);
 	}
 }
+
+void ALaserSpawner::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+	// Stop any future timer callbacks
+	if (GetWorld())
+	{
+		GetWorldTimerManager().ClearTimer(TimerHandle);
+	}
+}
+
 
 void ALaserSpawner::SpawnCalculator()
 {
@@ -74,12 +87,19 @@ void ALaserSpawner::SpawnCalculator()
 
 void ALaserSpawner::SpawnLaser()
 {
+	
+	if (!IsValid(this) || !GetWorld())
+	{
+		return;
+	}
+	
 	if (ActorHasTag("horizontal") && SingleLaser)
 	{
 		LaserNumber = 1;
 		FVector SpawnLocation = SpawnerOrigin;
 		ALaserHandler* LaserRef;
 		LaserRef = GetWorld()->SpawnActor<ALaserHandler>(SingleLaser, SpawnLocation, LaserRotation, SpawnParams);
+		if (!LaserRef) return;
 		LaserRef->FindComponentByClass<ULaserMovementComponent>()->SetDirection(LaserDirection);
 		LaserRef->FindComponentByClass<ULaserMovementComponent>()->SetSpeed(Speed);
 	}
@@ -99,13 +119,12 @@ void ALaserSpawner::SpawnLaser()
 				if (i == SafeLaserNumber)
 				{
 					LaserRef = GetWorld()->SpawnActor<ALaserHandler>(FakeLaserClass, SpawnLocation, SpawnRotation, SpawnParams);
-
-					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::FromInt(SafeLaserNumber)); //Debug purpose
 				}
 				else
 				{
 					LaserRef = GetWorld()->SpawnActor<ALaserHandler>(LaserClass, SpawnLocation, SpawnRotation, SpawnParams);
 				}
+				if (!LaserRef) return;
 				LaserRef->FindComponentByClass<ULaserMovementComponent>()->SetDirection(LaserDirection);
 				LaserRef->FindComponentByClass<ULaserMovementComponent>()->SetSpeed(Speed);
 				SpawnLocation += LaserOffset + Offset;

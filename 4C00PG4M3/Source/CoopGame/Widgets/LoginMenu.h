@@ -6,6 +6,11 @@
 #include "Blueprint/UserWidget.h"
 #include "LoginMenu.generated.h"
 
+class UTextBlock;
+class UEOSGameInstance;
+class UWidgetSwitcher;
+class UButton;
+
 /**
  * 
  */
@@ -17,53 +22,54 @@ class COOPGAME_API ULoginMenu : public UUserWidget
 protected:
 	virtual void NativeConstruct() override;
 
-	class UEOSGameInstance* GameInstance;
+private:
+	UPROPERTY()
+	TObjectPtr<UEOSGameInstance> GameInstance;
 	
+	// Widget Switcher
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UWidgetSwitcher> ScreenSwitcher;
+
+	//Widget 1 - Login
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UButton> LoginBtn;
+	
+	//Widget 2 - Loading
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> LoadingText;
+		
+	//Widget 3 - Main Menu
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> UsernameText;
+	
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UButton> HostBtn;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UButton> OptionsBtn;
+	
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UButton> QuitBtn;
+
+	UFUNCTION()
+	void OnLoginClicked();
+
+	UFUNCTION()
+	void OnHostClicked();
+
+	UFUNCTION()
+	void OnQuitClicked();
+
 	UFUNCTION()
 	void HandleLoginSuccess();
 
-private:
-	UPROPERTY(meta = (BindWidget))
-	class UButton* LoginBtn;
-
-	UPROPERTY(meta = (BindWidget))
-	class UButton* CreateSessionBtn;
-
-	UPROPERTY(meta = (BindWidget))
-	class UButton* FindSessionBtn;
-
-	UPROPERTY(meta = (BindWidget))
-	class UScrollBox* LobbyListScrollBox;
-
-	UPROPERTY(meta = (BindWidget))
-	class UEditableText* SessionNameText;
-
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<class ULobbyEntry> LobbyEntryClass;
+	UFUNCTION()
+	void HandleLoginFailed(const FString& Error);
 	
-	UPROPERTY(meta = (BindWidget))
-	class UButton* JoinLobbyBtn;
-
-
-	UFUNCTION()
-	void LoginBtnClicked();
-
-	UFUNCTION()
-	void CreateSessionBtnClicked();
-
-	UFUNCTION()
-	void FindSessionBtnClicked();
-	
-	UFUNCTION()
-	void SessionNameChanged(const FText& text);
-	
-	UFUNCTION()
-	void LobbyEntrySelected(int lobbyEntryIndex);
-	
-	UFUNCTION()
-	void JoinLobbyBtnClicked();
-
-	void SessionSearchCompleted(const TArray<FOnlineSessionSearchResult>& searchResults);
-	
-	int SelectedLobbyEntryIndex = -1;	
+	void ShowLoginScreen();
+	void ShowLoadingScreen();
+	void ShowMainMenuScreen();
+	void SetupMainMenuScreen();
 };

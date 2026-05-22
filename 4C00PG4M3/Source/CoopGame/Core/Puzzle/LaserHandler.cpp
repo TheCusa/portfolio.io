@@ -3,35 +3,34 @@
 
 #include "LaserHandler.h"
 #include "Components/BoxComponent.h"
-#include "RespawnPoint.h"
-#include "Kismet/GameplayStatics.h"
 #include "CoopGame/Characters/Agent/AgentCharacter.h"
+#include "CoopGame/Core/CoopGameState.h"
 #include "CoopGame/Core/Puzzle/LaserEndPoint.h"
+#include "Components/CapsuleComponent.h"
+#include "Components/StaticMeshComponent.h"
 
 // Sets default values
 ALaserHandler::ALaserHandler()
 {
-	
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 	Collider = CreateDefaultSubobject<UBoxComponent>(TEXT("Collider"));
+	LaserMesh = CreateDefaultSubobject<UStaticMeshComponent>("LaserMesh");
 	RootComponent = Collider;
+	LaserMesh->SetupAttachment(Collider);
 	bReplicates = true;
-    AActor::SetReplicateMovement(false); // ReplicateMovement handled manually from the LaserMovementComponent
-	
+    AActor::SetReplicateMovement(true); // ReplicateMovement handled manually from the LaserMovementComponent
 }
 
 // Called when the game starts or when spawned
 void ALaserHandler::BeginPlay()
 {
 	Super::BeginPlay();
-	RespawnPointRef = Cast<ARespawnPoint>(UGameplayStatics::GetActorOfClass(this, ARespawnPoint::StaticClass()));
+	//RespawnPointRef = Cast<ARespawnPoint>(UGameplayStatics::GetActorOfClass(this, ARespawnPoint::StaticClass()));
 	if (Collider)
 	{
 		Collider->OnComponentBeginOverlap.AddDynamic(this, &ALaserHandler::OnBeginOverlap);
-
 	}
-	
 }
 
 void ALaserHandler::OnBeginOverlap(UPrimitiveComponent* OverlappedComp,
@@ -45,18 +44,20 @@ void ALaserHandler::OnBeginOverlap(UPrimitiveComponent* OverlappedComp,
 		
 	if (HasAuthority())
 	{
-		HandleCollision(OtherActor);
+		HandleCollision(OtherActor, OtherComp);
 	}
 }
 
-void ALaserHandler::HandleCollision(AActor* ActorHit)
+void ALaserHandler::HandleCollision(AActor* ActorHit, UPrimitiveComponent* ComponentHit)
 {
 	if (ActorHit)
 	{
-		if (ActorHit->IsA(AAgentCharacter::StaticClass()) && bIsReal && HasAuthority())
+		if (ActorHit->IsA(AAgentCharacter::StaticClass()) && bIsReal && HasAuthority() && ComponentHit->IsA(UCapsuleComponent::StaticClass()))
 		{
 			//ActorHit->SetActorLocation(RespawnPointRef->RespawnPosition, false);
+#if !UE_BUILD_SHIPPING
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Hit");
+#endif
 			ACoopGameState* GameStateRef = Cast<ACoopGameState>(GetWorld()->GetGameState());
 			GameStateRef->SetAlarm(true);
 		}

@@ -18,7 +18,7 @@ public:
 		this->ConnectionDrawingPolicy = new FENConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj);
 	}
 
-	virtual void DrawConnection(int32 LayerId, const FVector2D& Start, const FVector2D& End, const FConnectionParams& Params) override
+	virtual void DrawConnection(int32 LayerId, const FVector2f& Start, const FVector2f& End, const FConnectionParams& Params) override
 	{
 		this->ConnectionDrawingPolicy->SetMousePosition(LocalMousePosition);
 		this->ConnectionDrawingPolicy->DrawConnection(LayerId, Start, End, Params);

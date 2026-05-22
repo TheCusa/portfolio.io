@@ -8,11 +8,18 @@
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "CoopGame/FirstPuzzle/InteractableObjectInterface.h"
+#include "CoopGame/FirstPuzzle/InteractableActor.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/TextBlock.h"
+#include "EnhancedInputSubsystemInterface.h"
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
+#include "InputActionValue.h"
+#include "InputAction.h"
 #include "Components/WidgetInteractionComponent.h"
-
+#include "CoopGame/Core/PlayerControllers/CoopPlayerController.h"
+#include "CoopGame/Widgets/GameMenuWidget.h"
+#include  "Kismet/GameplayStatics.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -100,14 +107,13 @@ void ACharacterParentClass::Interact()
 {
 	ShowUIPrompt();
 
-	if (NearbyInteractableObject && NearbyInteractableObject->Implements<UInteractableObjectInterface>())
+	if (NearbyInteractableObject && NearbyInteractableObject->IsA(AInteractableActor::StaticClass()))
 	{
-		(Cast<IInteractableObjectInterface>(NearbyInteractableObject))->ExecuteAction();
+		(Cast<AInteractableActor>(NearbyInteractableObject))->ExecuteAction();
 	}
 
 	HideUIPrompt();
 }
-
 
 // Called when the game starts or when spawned
 void ACharacterParentClass::BeginPlay()
@@ -166,25 +172,29 @@ void ACharacterParentClass::SetupPlayerInputComponent(UInputComponent* PlayerInp
 
 		// Interact
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ACharacterParentClass::Interact);
+	
+		//Click
+		EnhancedInputComponent->BindAction(LeftClickAction, ETriggerEvent::Triggered, this, &ACharacterParentClass::OnLeftClickPressed);
+		EnhancedInputComponent->BindAction(LeftClickAction, ETriggerEvent::Completed, this, &ACharacterParentClass::OnLeftClickReleased);
 
-		
+		//OpenMenu
+		EnhancedInputComponent->BindAction(OpenMenuAction, ETriggerEvent::Started, this, &ACharacterParentClass::OpenMenu);
+	
 	}
 	else
 	{
 		UE_LOG(LogTemplateCharacter, Error, TEXT("'%s' Failed to find an Enhanced Input component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
 	}
-
-	// Set up action bindings for UI navigation
-	if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent))
+}
+void ACharacterParentClass::Jump()
+{
+	Super::Jump();
+	if (JumpSound && CanJump())
 	{
-		EIC->BindAction(IA_Right, ETriggerEvent::Triggered, this, &ACharacterParentClass::ForwardHandleRight);
-		EIC->BindAction(IA_Left,  ETriggerEvent::Triggered, this, &ACharacterParentClass::ForwardHandleLeft);
-		EIC->BindAction(IA_CloseWidget, ETriggerEvent::Triggered, this, &ACharacterParentClass::ForwardCloseWidget);
-		EIC->BindAction(LeftClickAction, ETriggerEvent::Triggered, this, &ACharacterParentClass::OnLeftClickPressed);
-		EIC->BindAction(LeftClickAction, ETriggerEvent::Completed, this, &ACharacterParentClass::OnLeftClickReleased);
-        
+		UGameplayStatics::PlaySoundAtLocation(this, JumpSound, GetActorLocation());
 	}
 }
+
 void ACharacterParentClass::OnLeftClickPressed()
 {
 	if (WidgetInteractionComp)
@@ -200,38 +210,34 @@ void ACharacterParentClass::OnLeftClickReleased()
 		WidgetInteractionComp->ReleasePointerKey(EKeys::LeftMouseButton);
 	}
 }
-void ACharacterParentClass::ForwardHandleLeft(const FInputActionValue& Value)
+
+void ACharacterParentClass::OpenMenu()
 {
-	if (ACoopPlayerController* PC = Cast<ACoopPlayerController>(GetController()))
+	APlayerController* PlayerController = Cast<ACoopPlayerController>(GetController());
+	if (PlayerController)
 	{
-		//PC->HandleLeft(Value);
+		if (bIsMenuOpen)
+		{
+			bIsMenuOpen = false;
+			FInputModeGameOnly InputMode;
+			PlayerController->SetInputMode(InputMode);
+			PlayerController->SetShowMouseCursor(false);
+			GameMenuWidget->RemoveFromParent();
+			UnlockCharacterMovement();
+		}
+		else
+		{
+			bIsMenuOpen = true;
+			FInputModeGameAndUI InputMode;
+			PlayerController->SetInputMode(InputMode);
+			PlayerController->SetShowMouseCursor(true);
+			InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockAlways);
+			GameMenuWidget = CreateWidget<UGameMenuWidget>(GetWorld(), GameMenuWidgetClass);
+			GameMenuWidget->AddToViewport(100);
+			LockCharacterMovement();
+		}
 	}
 }
-
-void ACharacterParentClass::ForwardHandleRight(const FInputActionValue& Value)
-{
-	if (ACoopPlayerController* PC = Cast<ACoopPlayerController>(GetController()))
-	{
-		//PC->HandleRight(Value);
-	}
-}
-
-void ACharacterParentClass::ForwardOpenWidget(const FInputActionValue& Value)
-{
-	if (ACoopPlayerController* PC = Cast<ACoopPlayerController>(GetController()))
-	{
-		//PC->HandleOpenWidget(Value, WidgetName);
-	}
-}
-
-void ACharacterParentClass::ForwardCloseWidget(const FInputActionValue& Value)
-{
-	if (ACoopPlayerController* PC = Cast<ACoopPlayerController>(GetController()))
-	{
-		//PC->HandleCloseWidget(Value);
-	}
-}
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -240,8 +246,8 @@ void ACharacterParentClass::SetNearbyInteractableObject(AActor* InteractableObje
 {
 	NearbyInteractableObject = InteractableObject;
 
-	// Check if any of this objects are nullptr and if InteractableObject implements InteractableObjectInterface
-	if (!InteractableObject || !InteractUIWidget || !(InteractableObject->Implements<UInteractableObjectInterface>()))
+	// Check if any of these objects are nullptr and if implements AInteractableActor class
+	if (!InteractableObject || !InteractUIWidget || !(InteractableObject->IsA(AInteractableActor::StaticClass())))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("ERROR INTERACTABLE OBJECT REFERENCE"));
 		return;
@@ -249,10 +255,10 @@ void ACharacterParentClass::SetNearbyInteractableObject(AActor* InteractableObje
 
 	// Get object's prompt text
 	FText InteractionText;
-	IInteractableObjectInterface* obj = Cast<IInteractableObjectInterface>(InteractableObject);
-	if (obj)
+	AInteractableActor* InteractableActor = Cast<AInteractableActor>(InteractableObject);
+	if (InteractableActor)
 	{
-		InteractionText = obj->GetUIPromptText();
+		InteractionText = InteractableActor->GetUIPromptText();
 		//UE_LOG(LogTemp, Warning, TEXT("TEXT OK"));
 	}
 
@@ -280,6 +286,8 @@ void ACharacterParentClass::ClearNearbyInteractableObject(AActor* InteractableOb
 
 void ACharacterParentClass::LockCharacterMovement() const
 {
+	const_cast<ACharacterParentClass*>(this)->Server_StopCharacterMovement();
+
 	if (Subsystem)
 	{
 		Subsystem->RemoveMappingContext(GameplayMappingContext);	// Remove gameplay mapping context
@@ -312,3 +320,11 @@ void ACharacterParentClass::HideUIPrompt()
 	}
 }
 
+
+void ACharacterParentClass::Server_StopCharacterMovement_Implementation()
+{
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+	}
+}

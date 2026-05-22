@@ -9,6 +9,7 @@
 #include "CoopGame/Core/PlayerControllers/AgentPlayerController.h"
 #include "CoopGame/Core/CoopGameState.h"
 #include "CoopGame/Core/Puzzle/Utils.h"
+#include "Components/BoxComponent.h"
 
 
 // Sets default values
@@ -41,7 +42,7 @@ void ASoundPlatform::OnBeginOverlap(UPrimitiveComponent* OverlappedComp,
 	bool bFromSweep,
 	const FHitResult& SweepResult)
 {
-	if (HasAuthority() && OtherActor->IsA(AAgentCharacter::StaticClass()) && PianoRef)
+	if (HasAuthority() && OtherActor->IsA(AAgentCharacter::StaticClass()) && PianoRef && OtherComp->IsA(UBoxComponent::StaticClass()))
 	{
 		AAgentCharacter* AgentCharacter = Cast<AAgentCharacter>(OtherActor);
 		PCRef = Cast<AAgentPlayerController>(AgentCharacter->GetController());

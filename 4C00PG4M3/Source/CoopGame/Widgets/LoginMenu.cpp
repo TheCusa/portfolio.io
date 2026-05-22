@@ -4,10 +4,9 @@
 #include "LoginMenu.h"
 #include "CoopGame/EOS/EOSGameInstance.h"
 #include "Components/Button.h"
-#include "Components/EditableText.h"
-#include "Components/ScrollBox.h"
-#include "OnlineSessionSettings.h"
-#include "LobbyEntry.h"
+#include "Components/TextBlock.h"
+#include "Components/WidgetSwitcher.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 
 void ULoginMenu::NativeConstruct()
@@ -15,96 +14,102 @@ void ULoginMenu::NativeConstruct()
 	Super::NativeConstruct();
 	GameInstance = GetGameInstance<UEOSGameInstance>();
 
-	LoginBtn->OnClicked.AddDynamic(this, &ULoginMenu::LoginBtnClicked);
-
-	CreateSessionBtn->OnClicked.AddDynamic(this, &ULoginMenu::CreateSessionBtnClicked);
-	CreateSessionBtn->SetIsEnabled(false);
-
-	FindSessionBtn->OnClicked.AddDynamic(this, &ULoginMenu::FindSessionBtnClicked);
-	FindSessionBtn->SetIsEnabled(false);
-
-	SessionNameText->OnTextChanged.AddDynamic(this, &ULoginMenu::SessionNameChanged);
-
-	JoinLobbyBtn->OnClicked.AddDynamic(this, &ULoginMenu::JoinLobbyBtnClicked);
-	JoinLobbyBtn->SetIsEnabled(false);
-
-	GameInstance->SearchCompleted.AddUObject(this, &ULoginMenu::SessionSearchCompleted);
-
+	// Login
+	LoginBtn->OnClicked.AddDynamic(this, &ULoginMenu::OnLoginClicked);
+	
+	// Main Menu
+	HostBtn->OnClicked.AddDynamic(this, &ULoginMenu::OnHostClicked);
+	//OptionsBtn->OnClicked.AddDynamic(this, &ULoginMenu::OptionsBtnClicked);
+	QuitBtn->OnClicked.AddDynamic(this, &ULoginMenu::OnQuitClicked);
 	
 	if (GameInstance)
 	{
 		GameInstance->OnLoginSuccess.AddUObject(this, &ULoginMenu::HandleLoginSuccess);
+		GameInstance->OnLoginFailed.AddUObject(this, &ULoginMenu::HandleLoginFailed);
+		
+		if (GameInstance->IsLoggedIn())
+		{
+			UE_LOG(LogTemp, Log, TEXT("User is already logged in. Showing main menu directly."));
+			SetupMainMenuScreen();
+		}
+		else
+		{
+			ShowLoginScreen();
+		}
+	}
+	else
+	{
+		// Fallback if GameInstance is invalid for some reason.
+		ShowLoginScreen();
 	}
 }
 
-void ULoginMenu::HandleLoginSuccess()
-{
-	UE_LOG(LogTemp, Warning, TEXT("LoginMenu: Login successful! Enabling buttons."));
-
-	SessionNameChanged(SessionNameText->GetText());
-
-	FindSessionBtn->SetIsEnabled(true);
-
-	//LoginBtn->SetIsEnabled(false);
-}
-
-void ULoginMenu::LoginBtnClicked()
+void ULoginMenu::OnLoginClicked()
 {
 	if (GameInstance)
 	{
+		ShowLoadingScreen();
 		GameInstance->Login();
 	}
 }
 
-void ULoginMenu::CreateSessionBtnClicked()
+void ULoginMenu::OnHostClicked()
 {
 	if (GameInstance)
 	{
-		GameInstance->CreateSession(FName(SessionNameText->GetText().ToString()));
+		GameInstance->CreateSession();
 	}
 }
 
-void ULoginMenu::FindSessionBtnClicked()
+void ULoginMenu::OnQuitClicked()
+{
+	UKismetSystemLibrary::QuitGame(this, nullptr, EQuitPreference::Quit, false);
+}
+
+
+void ULoginMenu::HandleLoginSuccess()
 {
 	if (GameInstance)
 	{
-		GameInstance->FindSession();
+		UsernameText->SetText(FText::FromString(GameInstance->GetNickname()));
 	}
+	SetupMainMenuScreen();
 }
 
-void ULoginMenu::SessionNameChanged(const FText& text)
+void ULoginMenu::HandleLoginFailed(const FString& Error)
 {
-	CreateSessionBtn->SetIsEnabled(!text.IsEmpty());
+	UE_LOG(LogTemp, Warning, TEXT("Login failed UI Handler. Error: %s"), *Error);
+	ShowLoginScreen();
 }
 
-void ULoginMenu::LobbyEntrySelected(int lobbyEntryIndex)
+void ULoginMenu::ShowLoginScreen()
 {
-	SelectedLobbyEntryIndex = lobbyEntryIndex;
-	if (SelectedLobbyEntryIndex != -1)
+	if (ScreenSwitcher)
 	{
-		JoinLobbyBtn->SetIsEnabled(true);
+		ScreenSwitcher->SetActiveWidgetIndex(0);
+	}
+}
+void ULoginMenu::ShowLoadingScreen()
+{
+	if (ScreenSwitcher)
+	{
+		ScreenSwitcher->SetActiveWidgetIndex(1);
+	}
+}
+void ULoginMenu::ShowMainMenuScreen()
+{
+	if (ScreenSwitcher)
+	{
+		ScreenSwitcher->SetActiveWidgetIndex(2);
 	}
 }
 
-void ULoginMenu::JoinLobbyBtnClicked()
+void ULoginMenu::SetupMainMenuScreen()
 {
 	if (GameInstance)
 	{
-		GameInstance->JoinLobbyBySearchResultIndex(SelectedLobbyEntryIndex);
+		UsernameText->SetText(FText::FromString(GameInstance->GetNickname()));
 	}
+	ShowMainMenuScreen();
 }
 
-void ULoginMenu::SessionSearchCompleted(const TArray<FOnlineSessionSearchResult>& searchResults)
-{
-	LobbyListScrollBox->ClearChildren();
-	int index = 0;
-	for (const FOnlineSessionSearchResult& SearchResult : searchResults)
-	{
-		FString sessionName = GameInstance->GetSessionName(SearchResult);
-		ULobbyEntry* LobbyEntry = CreateWidget<ULobbyEntry>(LobbyListScrollBox, LobbyEntryClass);
-		LobbyEntry->InitLobbyEntry(FName(sessionName), index);		
-		LobbyListScrollBox->AddChild(LobbyEntry);
-		LobbyEntry->OnLobbyEntrySelected.AddDynamic(this, &ULoginMenu::LobbyEntrySelected);
-		++index;
-	}
-}

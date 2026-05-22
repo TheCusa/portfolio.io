@@ -74,6 +74,7 @@ void FElectronicNodesModule::ReloadConfiguration(UObject* Object, struct FProper
 			else
 			{
 				ElectronicNodesSettings->SaveConfig(CPF_Config, *GlobalSettingsFile);
+				// ElectronicNodesSettings->TryUpdateDefaultConfigFile(*GlobalSettingsFile); // Try this if the above line doesn't work
 			}
 		}
 	}

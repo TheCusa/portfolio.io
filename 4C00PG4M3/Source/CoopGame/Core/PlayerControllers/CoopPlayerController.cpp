@@ -2,6 +2,8 @@
 
 
 #include "CoopPlayerController.h"
+
+#include "Blueprint/UserWidget.h"
 #include "Engine/Engine.h"
 #include "GameFramework/PlayerState.h"
 
@@ -14,9 +16,44 @@ void ACoopPlayerController::Say(const FString& Message)
 	}
 	Server_SendMessage(Message);
 }
+
+void ACoopPlayerController::Client_GameOver_Implementation()
+{
+	if (GameOverWidgetClass)
+	{
+		GameOverWidgetInstance = CreateWidget<UUserWidget>(this, GameOverWidgetClass);
+		if (GameOverWidgetInstance)
+		{
+			GameOverWidgetInstance->AddToViewport(100);
+		}
+	}
+	
+	FInputModeUIOnly InputMode;
+	if (GameOverWidgetInstance)
+	{
+		InputMode.SetWidgetToFocus(GameOverWidgetInstance->TakeWidget());
+	}
+	else
+	{
+		InputMode.SetWidgetToFocus(nullptr);
+	}
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+    
+	SetInputMode(InputMode);
+	bShowMouseCursor = true;
+	SetPause(true);
+}
+
 void ACoopPlayerController::OnRep_PlayerState()
 {
 	BP_OnRep_PlayerState();
+}
+
+void ACoopPlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+	FInputModeGameOnly InputMode;
+	SetInputMode(InputMode);
 }
 
 void ACoopPlayerController::Server_SendMessage_Implementation(const FString& Message)

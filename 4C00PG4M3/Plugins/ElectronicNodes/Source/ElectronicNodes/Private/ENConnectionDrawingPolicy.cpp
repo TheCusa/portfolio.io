@@ -9,7 +9,6 @@
 #include "MaterialGraph/MaterialGraphSchema.h"
 #include "Policies/ENAnimGraphConnectionDrawingPolicy.h"
 #include "Policies/ENBehaviorTreeConnectionDrawingPolicy.h"
-#include "Policies/ENMaterialGraphConnectionDrawingPolicy.h"
 
 FConnectionDrawingPolicy* FENConnectionDrawingPolicyFactory::CreateConnectionPolicy(const class UEdGraphSchema* Schema, int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const class FSlateRect& InClippingRect, class FSlateWindowElementList& InDrawElements, class UEdGraph* InGraphObj) const
 {
@@ -76,7 +75,7 @@ FConnectionDrawingPolicy* FENConnectionDrawingPolicyFactory::CreateConnectionPol
 
 	if (ElectronicNodesSettings.ActivateOnMaterial && Schema->IsA(UMaterialGraphSchema::StaticClass()))
 	{
-		return new FENMaterialGraphConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj);
+		return new FENConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj);
 	}
 
 	for (const auto& Type : ElectronicNodesSettings.CustomGraphSchemas)
@@ -95,7 +94,7 @@ FConnectionDrawingPolicy* FENConnectionDrawingPolicyFactory::CreateConnectionPol
 	return nullptr;
 }
 
-void FENConnectionDrawingPolicy::DrawConnection(int32 LayerId, const FVector2D& Start, const FVector2D& End, const FConnectionParams& Params)
+void FENConnectionDrawingPolicy::DrawConnection(int32 LayerId, const FVector2f& Start, const FVector2f& End, const FConnectionParams& Params)
 {
 	const bool RightPriority = ENIsRightPriority(Params);
 
@@ -104,10 +103,10 @@ void FENConnectionDrawingPolicy::DrawConnection(int32 LayerId, const FVector2D& 
 	ClosestDistanceSquared = MAX_FLT;
 
 	FENPathDrawer PathDrawer(LayerId, ZoomFactor, RightPriority, &Params, &DrawElementsList, this);
-	FVector2D StartDirection = (Params.StartDirection == EGPD_Output) ? FVector2D(1.0f, 0.0f) : FVector2D(-1.0f, 0.0f);
-	FVector2D EndDirection = (Params.EndDirection == EGPD_Input) ? FVector2D(1.0f, 0.0f) : FVector2D(-1.0f, 0.0f);
+	FVector2f StartDirection = (Params.StartDirection == EGPD_Output) ? FVector2f(1.0f, 0.0f) : FVector2f(-1.0f, 0.0f);
+	FVector2f EndDirection = (Params.EndDirection == EGPD_Input) ? FVector2f(1.0f, 0.0f) : FVector2f(-1.0f, 0.0f);
 
-	if (FVector2D::Distance(Start, End) < ElectronicNodesSettings.MinDistanceToStyle * ZoomFactor)
+	if (FVector2f::Distance(Start, End) < ElectronicNodesSettings.MinDistanceToStyle * ZoomFactor)
 	{
 		switch (ElectronicNodesSettings.MinDistanceStyle)
 		{
@@ -123,12 +122,12 @@ void FENConnectionDrawingPolicy::DrawConnection(int32 LayerId, const FVector2D& 
 
 	if (IsTree)
 	{
-		StartDirection = FVector2D(0.0f, 1.0f);
-		EndDirection = FVector2D(0.0f, 1.0f);
+		StartDirection = FVector2f(0.0f, 1.0f);
+		EndDirection = FVector2f(0.0f, 1.0f);
 	}
 
-	FVector2D NewStart = Start;
-	FVector2D NewEnd = End;
+	FVector2f NewStart = Start;
+	FVector2f NewEnd = End;
 
 	ENCorrectZoomDisplacement(NewStart, NewEnd);
 	ENProcessRibbon(_LayerId, NewStart, StartDirection, NewEnd, EndDirection, Params);
@@ -155,8 +154,8 @@ void FENConnectionDrawingPolicy::DrawConnection(int32 LayerId, const FVector2D& 
 		for (int i = 0; i < MembersCount; i++)
 		{
 			const float Factor = static_cast<float>(i) - (static_cast<float>(MembersCount) / 2.0f) + 0.5f;
-			auto MultipleStart = NewStart + FVector2d(0, 4.0f * Factor * ZoomFactor);
-			auto MultipleEnd = NewEnd + FVector2d(0, 4.0f * Factor * ZoomFactor);
+			auto MultipleStart = NewStart + FVector2f(0, 4.0f * Factor * ZoomFactor);
+			auto MultipleEnd = NewEnd + FVector2f(0, 4.0f * Factor * ZoomFactor);
 			this->ENDrawMainWire(&PathDrawer, WireStyle, MultipleStart, StartDirection, MultipleEnd, EndDirection, Params);
 		}
 	}
@@ -215,12 +214,12 @@ int8 FENConnectionDrawingPolicy::ENGetPinMembersCount(const UEdGraphPin* Pin)
 	return 1;
 }
 
-void FENConnectionDrawingPolicy::ENDrawMainWire(FENPathDrawer* PathDrawer, EWireStyle WireStyle, FVector2D& InStart, FVector2D& StartDirection, FVector2D& InEnd, FVector2D& EndDirection, const FConnectionParams& Params)
+void FENConnectionDrawingPolicy::ENDrawMainWire(FENPathDrawer* PathDrawer, EWireStyle WireStyle, FVector2f& InStart, FVector2f& StartDirection, FVector2f& InEnd, FVector2f& EndDirection, const FConnectionParams& Params)
 {
 	const float Offset = ElectronicNodesSettings.HorizontalOffset * ZoomFactor;
 
-	FVector2D Start = InStart;
-	FVector2D End = InEnd;
+	FVector2f Start = InStart;
+	FVector2f End = InEnd;
 
 	if (ElectronicNodesSettings.DisablePinOffset)
 	{
@@ -252,7 +251,7 @@ void FENConnectionDrawingPolicy::ENDrawMainWire(FENPathDrawer* PathDrawer, EWire
 	}
 }
 
-void FENConnectionDrawingPolicy::ENCorrectZoomDisplacement(FVector2D& Start, FVector2D& End) const
+void FENConnectionDrawingPolicy::ENCorrectZoomDisplacement(FVector2f& Start, FVector2f& End) const
 {
 	if (ElectronicNodesSettings.FixZoomDisplacement)
 	{
@@ -265,7 +264,7 @@ void FENConnectionDrawingPolicy::ENCorrectZoomDisplacement(FVector2D& Start, FVe
 	}
 }
 
-void FENConnectionDrawingPolicy::ENProcessRibbon(int32 LayerId, FVector2D& Start, FVector2D& StartDirection, FVector2D& End, FVector2D& EndDirection, const FConnectionParams& Params)
+void FENConnectionDrawingPolicy::ENProcessRibbon(int32 LayerId, FVector2f& Start, FVector2f& StartDirection, FVector2f& End, FVector2f& EndDirection, const FConnectionParams& Params)
 {
 	int32 DepthOffsetX = 0;
 	int32 DepthOffsetY = 0;
@@ -347,14 +346,14 @@ void FENConnectionDrawingPolicy::ENProcessRibbon(int32 LayerId, FVector2D& Start
 		RibbonConnections.Add(ENRibbonConnection(Start.Y, End.Y, true, Start.X, End.X, DepthOffsetY));
 		RibbonConnections.Add(ENRibbonConnection(End.X, Start.X, false, Start.Y, End.Y, DepthOffsetX));
 
-		FVector2D StartKey(FMath::FloorToInt(Start.X), FMath::FloorToInt(Start.Y));
-		FVector2D EndKey(FMath::FloorToInt(End.X), FMath::FloorToInt(End.Y));
+		FVector2f StartKey(FMath::FloorToInt(Start.X), FMath::FloorToInt(Start.Y));
+		FVector2f EndKey(FMath::FloorToInt(End.X), FMath::FloorToInt(End.Y));
 
 		FENPathDrawer PathDrawer(LayerId, ZoomFactor, true, &Params, &DrawElementsList, this);
 
 		if (DepthOffsetY != 0)
 		{
-			FVector2D NewStart = Start;
+			FVector2f NewStart = Start;
 			NewStart.X += ElectronicNodesSettings.RibbonMergeOffset * ZoomFactor * StartDirection.X;
 			NewStart.Y += static_cast<int32>(ElectronicNodesSettings.RibbonOffset) * DepthOffsetY * ZoomFactor;
 
@@ -365,7 +364,7 @@ void FENConnectionDrawingPolicy::ENProcessRibbon(int32 LayerId, FVector2D& Start
 
 		if (DepthOffsetX != 0)
 		{
-			FVector2D NewEnd = End;
+			FVector2f NewEnd = End;
 			NewEnd.X -= static_cast<int32>(ElectronicNodesSettings.RibbonOffset) * DepthOffsetX * ZoomFactor * EndDirection.X;
 
 			if (DepthOffsetX * EndDirection.X > 0)
@@ -489,7 +488,7 @@ void FENConnectionDrawingPolicy::BuildRelatedNodes(UEdGraphNode* Node, TArray<UE
 	}
 }
 
-void FENConnectionDrawingPolicy::ENDrawBubbles(const FVector2D& Start, const FVector2D& StartTangent, const FVector2D& End, const FVector2D& EndTangent)
+void FENConnectionDrawingPolicy::ENDrawBubbles(const FVector2f& Start, const FVector2f& StartTangent, const FVector2f& End, const FVector2f& EndTangent)
 {
 	const bool ENDrawBubbles = ElectronicNodesSettings.ForceDrawBubbles
 	&& (ElectronicNodesSettings.BubbleZoomThreshold <= ENGetZoomLevel())
@@ -545,7 +544,7 @@ void FENConnectionDrawingPolicy::ENDrawBubbles(const FVector2D& Start, const FVe
 		{
 			BubbleSpeed = 0.0f;
 		}
-		FVector2D BubbleSize = BubbleImage->ImageSize * ZoomFactor * 0.1f * ElectronicNodesSettings.BubbleSize * FMath::Sqrt(_Params->WireThickness);
+		FVector2f BubbleSize = BubbleImage->ImageSize * ZoomFactor * 0.1f * ElectronicNodesSettings.BubbleSize * FMath::Sqrt(_Params->WireThickness);
 		if (_Params->bDrawBubbles)
 		{
 			BubbleSize *= 1.25f;
@@ -557,10 +556,10 @@ void FENConnectionDrawingPolicy::ENDrawBubbles(const FVector2D& Start, const FVe
 		for (int32 i = 0; i < NumBubbles; ++i)
 		{
 			const float Alpha = (AlphaOffset + i) / NumBubbles;
-			FVector2D BubblePos;
-			if (StartTangent != FVector2D::ZeroVector && EndTangent != FVector2D::ZeroVector)
+			FVector2f BubblePos;
+			if (StartTangent != FVector2f::ZeroVector && EndTangent != FVector2f::ZeroVector)
 			{
-				if ((StartTangent != EndTangent) && ((StartTangent * EndTangent) == FVector2D::ZeroVector))
+				if ((StartTangent != EndTangent) && ((StartTangent * EndTangent) == FVector2f::ZeroVector))
 				{
 					BubblePos = Start + StartTangent * FMath::Sin(Alpha * PI / 2.0f) + EndTangent * (1.0f - FMath::Cos(Alpha * PI / 2.0f));
 				}
@@ -587,23 +586,23 @@ void FENConnectionDrawingPolicy::ENDrawBubbles(const FVector2D& Start, const FVe
 	}
 }
 
-void FENConnectionDrawingPolicy::ENDrawArrow(const FVector2D& Start, const FVector2D& End)
+void FENConnectionDrawingPolicy::ENDrawArrow(const FVector2f& Start, const FVector2f& End)
 {
 	if (MidpointImage != nullptr && (Start - End).Size() > 4 * MinXOffset)
 	{
-		const FVector2D MidpointDrawPos = (Start + End) / 2.0f - MidpointRadius * 0.75f;
-		const FVector2D SlopeUnnormalized = (End - Start);
+		const FVector2f MidpointDrawPos = (Start + End) / 2.0f - MidpointRadius * 0.75f;
+		const FVector2f SlopeUnnormalized = (End - Start);
 		const float AngleInRadians = FMath::Atan2(SlopeUnnormalized.Y, SlopeUnnormalized.X);
 
 		FSlateDrawElement::MakeRotatedBox(DrawElementsList, _LayerId, FPaintGeometry(MidpointDrawPos, MidpointImage->ImageSize * ZoomFactor * 0.75f, ZoomFactor * 0.75f),
-		                                  MidpointImage, ESlateDrawEffect::None, AngleInRadians, TOptional<FVector2D>(), FSlateDrawElement::RelativeToElement, _Params->WireColor);
+		                                  MidpointImage, ESlateDrawEffect::None, AngleInRadians, TOptional<FVector2f>(), FSlateDrawElement::RelativeToElement, _Params->WireColor);
 	}
 }
 
-void FENConnectionDrawingPolicy::DrawDebugPoint(const FVector2D& Position, FLinearColor Color)
+void FENConnectionDrawingPolicy::DrawDebugPoint(const FVector2f& Position, FLinearColor Color)
 {
-	const FVector2D BubbleSize = BubbleImage->ImageSize * ZoomFactor * 0.1f * ElectronicNodesSettings.BubbleSize * FMath::Sqrt(_Params->WireThickness);
-	const FVector2D BubblePos = Position - (BubbleSize * 0.5f);
+	const FVector2f BubbleSize = BubbleImage->ImageSize * ZoomFactor * 0.1f * ElectronicNodesSettings.BubbleSize * FMath::Sqrt(_Params->WireThickness);
+	const FVector2f BubblePos = Position - (BubbleSize * 0.5f);
 
 	FSlateDrawElement::MakeBox(
 		DrawElementsList,
@@ -615,9 +614,9 @@ void FENConnectionDrawingPolicy::DrawDebugPoint(const FVector2D& Position, FLine
 	);
 }
 
-void FENConnectionDrawingPolicy::ENComputeClosestPoint(const FVector2D& Start, const FVector2D& End)
+void FENConnectionDrawingPolicy::ENComputeClosestPoint(const FVector2f& Start, const FVector2f& End)
 {
-	const FVector2D TemporaryPoint = FMath::ClosestPointOnSegment2D(LocalMousePosition, Start, End);
+	const FVector2f TemporaryPoint = FMath::ClosestPointOnSegment2D(LocalMousePosition, Start, End);
 	const float TemporaryDistance = (LocalMousePosition - TemporaryPoint).SizeSquared();
 
 	if (TemporaryDistance < ClosestDistanceSquared)
@@ -627,25 +626,25 @@ void FENConnectionDrawingPolicy::ENComputeClosestPoint(const FVector2D& Start, c
 	}
 }
 
-void FENConnectionDrawingPolicy::ENComputeClosestPointDefault(const FVector2D& Start, const FVector2D& StartTangent, const FVector2D& End, const FVector2D& EndTangent)
+void FENConnectionDrawingPolicy::ENComputeClosestPointDefault(const FVector2f& Start, const FVector2f& StartTangent, const FVector2f& End, const FVector2f& EndTangent)
 {
 	const float Offset = 50.0 * ZoomFactor;
-	const FVector2D MinStart = FVector2D(FMath::Min(Start.X, End.X) - Offset, FMath::Min(Start.Y, End.Y));
-	const FVector2D MaxEnd = FVector2D(FMath::Max(Start.X, End.X) + Offset, FMath::Max(Start.Y, End.Y));
+	const FVector2f MinStart = FVector2f(FMath::Min(Start.X, End.X) - Offset, FMath::Min(Start.Y, End.Y));
+	const FVector2f MaxEnd = FVector2f(FMath::Max(Start.X, End.X) + Offset, FMath::Max(Start.Y, End.Y));
 
-	const FBox2D Bounds(MinStart, MaxEnd);
+	const FBox2f Bounds(MinStart, MaxEnd);
 	const bool bCloseToSpline = Bounds.ComputeSquaredDistanceToPoint(LocalMousePosition) < 1.0f;
 
 	if (bCloseToSpline)
 	{
 		const float StepInterval = 1.0f / 16.0f;
 		const float Tangent = (End - Start).Size();
-		FVector2D PointOnSpline1 = FMath::CubicInterp(Start, StartTangent * Tangent, End, EndTangent * Tangent, 0.0f);
+		FVector2f PointOnSpline1 = FMath::CubicInterp(Start, StartTangent * Tangent, End, EndTangent * Tangent, 0.0f);
 		for (float TestAlpha = 0.0f; TestAlpha < 1.0f; TestAlpha += StepInterval)
 		{
-			const FVector2D PointOnSpline2 = FMath::CubicInterp(Start, StartTangent * Tangent, End, EndTangent * Tangent, TestAlpha + StepInterval);
+			const FVector2f PointOnSpline2 = FMath::CubicInterp(Start, StartTangent * Tangent, End, EndTangent * Tangent, TestAlpha + StepInterval);
 
-			const FVector2D ClosestPointToSegment = FMath::ClosestPointOnSegment2D(LocalMousePosition, PointOnSpline1, PointOnSpline2);
+			const FVector2f ClosestPointToSegment = FMath::ClosestPointOnSegment2D(LocalMousePosition, PointOnSpline1, PointOnSpline2);
 			const float DistanceSquared = (LocalMousePosition - ClosestPointToSegment).SizeSquared();
 
 			if (DistanceSquared < ClosestDistanceSquared)

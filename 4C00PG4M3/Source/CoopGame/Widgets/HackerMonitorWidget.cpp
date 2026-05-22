@@ -22,28 +22,30 @@ void UHackerMonitorWidget::NativeConstruct()
 	{
 		CameraButton->OnPressed.AddDynamic(this, &UHackerMonitorWidget::OnCameraButtonPressed);
 	}
-
 	if (PianoButton)
 	{
 		PianoButton->OnPressed.AddDynamic(this, &UHackerMonitorWidget::OnPianoButtonPressed);
 	}
+	if (ExitButton)
+	{
+		ExitButton->OnReleased.AddDynamic(this, &UHackerMonitorWidget::OnExitButtonReleased);
+		ExitButton->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	
 	if (WidgetSwitcher)
 	{
-		WidgetSwitcher->SetVisibility(ESlateVisibility::Hidden);
+		WidgetSwitcher->SetVisibility(ESlateVisibility::Collapsed);
 	}
 }
 
 void UHackerMonitorWidget::OnKeypadButtonPressed()
 {
-	if (UDigitDisplayWidget* DigitWidget = Cast<UDigitDisplayWidget>(WidgetSwitcher->GetWidgetAtIndex(0)))
-	{
-		SwitchToWidget(0);
-	}
-
+	SwitchToWidget(0);
 }
 
 void UHackerMonitorWidget::OnCameraButtonPressed()
 {
+	Cast<UHackerLaserPuzzleWidget>(HackerLaserPuzzleWidgetInstance)->InitializeCameras();
 	SwitchToWidget(1);
 }
 
@@ -52,12 +54,22 @@ void UHackerMonitorWidget::OnPianoButtonPressed()
 	SwitchToWidget(2);
 }
 
+void UHackerMonitorWidget::OnExitButtonReleased()
+{
+	ExitButton->SetVisibility(ESlateVisibility::Collapsed);
+	WidgetSwitcher->SetVisibility(ESlateVisibility::Collapsed);
+}
+
 void UHackerMonitorWidget::SwitchToWidget(int32 WidgetIndex)
 {
 	if (WidgetSwitcher)
 	{
 		WidgetSwitcher->SetVisibility(ESlateVisibility::Visible);
 		WidgetSwitcher->SetActiveWidgetIndex(WidgetIndex);
+	}
+	if (ExitButton)
+	{
+		ExitButton->SetVisibility(ESlateVisibility::Visible);
 	}
 }
 

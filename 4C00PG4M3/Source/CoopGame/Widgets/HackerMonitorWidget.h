@@ -34,6 +34,9 @@ private:
 	UButton* PianoButton;
 	
 	UPROPERTY(meta = (BindWidget))
+	UButton* ExitButton;
+	
+	UPROPERTY(meta = (BindWidget))
 	UWidgetSwitcher* WidgetSwitcher;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Widgets")
@@ -62,6 +65,9 @@ private:
 
 	UFUNCTION()
 	void OnPianoButtonPressed();
+	
+	UFUNCTION()
+	void OnExitButtonReleased();
 	
 	UFUNCTION()
 	void SwitchToWidget(int32 WidgetIndex);

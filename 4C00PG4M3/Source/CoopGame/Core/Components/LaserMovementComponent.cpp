@@ -1,7 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "LaserMovementComponent.h"
+#include "GameFramework/Actor.h"
+#include "Net/UnrealNetwork.h"
 
 // Sets default values for this component's properties
 ULaserMovementComponent::ULaserMovementComponent()
@@ -10,8 +11,6 @@ ULaserMovementComponent::ULaserMovementComponent()
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
 	SetIsReplicatedByDefault(true);
-
-	// ...
 }
 
 
@@ -20,9 +19,8 @@ void ULaserMovementComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	StartPoint = GetOwner()->GetActorLocation();
-	GetOwner()->SetActorLocation(StartPoint);
-	// ...
-	
+	ClientInterpolationTarget = StartPoint;
+	TargetLocation = StartPoint; 
 }
 
 
@@ -30,21 +28,23 @@ void ULaserMovementComponent::BeginPlay()
 void ULaserMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
 	// Server moves the Laser
 	if (GetOwner()->HasAuthority())
 	{
+		
 		Movement(DeltaTime);
 	}
 	
-	else //Clients only. Interpolate to TargetLocation manually
+	else
 	{
 		FVector CurrentLocation = GetOwner()->GetActorLocation();
-		FVector SmoothedLoc = FMath::VInterpTo(CurrentLocation, TargetLocation, DeltaTime, 10.f);
+		// Interpolate smoothly toward target
+		FVector SmoothedLoc = FMath::VInterpTo(CurrentLocation, ClientInterpolationTarget, DeltaTime, InterpSpeed);
 		GetOwner()->SetActorLocation(SmoothedLoc);
 	}
 }
 
+// Server-only function to move the actor and set the replicated variable
 void ULaserMovementComponent::Movement(float DeltaTime)
 {
 	FVector CurrentLocation = GetOwner()->GetActorLocation();
@@ -54,9 +54,10 @@ void ULaserMovementComponent::Movement(float DeltaTime)
 	TargetLocation = CurrentLocation; // replicate to clients
 }
 
-// Fallback function to replication. no actions needed
+// This function is called ON CLIENTS when the server updates TargetLocation
 void ULaserMovementComponent::OnRep_TargetLocation()
 {
+    ClientInterpolationTarget = TargetLocation;
 }
 
 void ULaserMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

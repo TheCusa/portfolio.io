@@ -7,6 +7,9 @@
 #include "Blueprint/IUserObjectListEntry.h"
 #include "CharacterEntry.generated.h"
 
+class UImage;
+class UTextBlock;
+
 /**
  * 
  */
@@ -16,22 +19,25 @@ class COOPGAME_API UCharacterEntry : public UUserWidget, public IUserObjectListE
 	GENERATED_BODY()
 
 public:
-	void SetCharacterSelected(bool bIsSelected);
-
+	void SetCharacterSelected(bool bIsSelected) const;
+	void SetOwningPlayerName(const FString& PlayerName) const;
+	
 protected:
-	virtual void NativeOnListItemObjectSet(UObject* ListItemObject);
+	virtual void NativeOnListItemObjectSet(UObject* ListItemObject) override;
 
 private:
 	UPROPERTY(meta = (BindWidget))
-	class UImage* IconImage;
+	TObjectPtr<UImage> IconImage;
 
 	UPROPERTY(meta = (BindWidget))
-	class UTextBlock* NameText;
+	TObjectPtr<UTextBlock> NameText;
 
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> PlayerNameText;
+	
 	UPROPERTY(EditDefaultsOnly)
 	FName IconMaterialParamName{ "Icon" };
 	
 	UPROPERTY(EditDefaultsOnly)
 	FName SaturationMaterialParamName{ "Saturation" };
-	
 };

@@ -8,6 +8,8 @@
 #include "Net/UnrealNetwork.h"
 #include "Piano.generated.h"
 
+class AGameplayGameMode;
+class AMovingDoor;
 class Utils;
 class UMelodiesDataTable;
 UCLASS()
@@ -22,7 +24,9 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-
+	
+	UPROPERTY()
+	AGameplayGameMode* GameModeRef;
 public:	
 	void AddNote(Notes);
 
@@ -36,6 +40,10 @@ public:
 	TArray<int8> GetPuzzleSolution();
 	UPROPERTY(Replicated)
 	TArray <Notes> PuzzleSolution;
+	
+	UPROPERTY(EditInstanceOnly)
+	TObjectPtr<AMovingDoor> MovingDoor;
+
 private:
 	FTimerHandle TimerHandler;
 	UPROPERTY(EditDefaultsOnly)
@@ -44,5 +52,7 @@ private:
 	void OnTimerFinished();
 	void ResetStartTimer();
 	TArray<Notes> PickRandomMelody();
+	
+
 
 };

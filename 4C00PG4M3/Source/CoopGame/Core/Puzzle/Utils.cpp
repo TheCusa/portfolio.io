@@ -22,7 +22,7 @@ TArray<int8> Utils::GenerateCode(int8 ArraySize)
 
 void Utils::DebugShowCode(TArray<int8>& Array, FString message)
 {
-	
+#if !UE_BUILD_SHIPPING
 	if (GEngine)
 	{
 		for (int i = 0; i < Array.Num(); ++i)
@@ -31,4 +31,5 @@ void Utils::DebugShowCode(TArray<int8>& Array, FString message)
 		}
 		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, message);
 	}
+#endif
 }

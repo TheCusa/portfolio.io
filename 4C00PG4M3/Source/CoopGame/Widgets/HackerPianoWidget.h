@@ -2,14 +2,11 @@
 
 #pragma once
 
-#include "Blueprint/WidgetTree.h"
-#include "CoopGame/Core/CoopGameState.h"
 #include "CoreMinimal.h"
 #include "GameWidgetParentClass.h"
 #include "Components/Border.h"
 #include "Components/HorizontalBox.h"
 #include "Components/Image.h"
-#include "Components/TextBlock.h"
 #include "CoopGame/SoundPuzzle/SoundDataAsset.h"
 #include "HackerPianoWidget.generated.h"
 
@@ -41,17 +38,23 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	UHorizontalBox* NoteSequenceContainer;
 
+	UPROPERTY(EditAnywhere, Category = "Piano Configuration")
+	float GlobalNoteVerticalOffset = 0.0f;
+	
+	UPROPERTY(EditAnywhere, Category = "Debug")
+	bool bShowDebugScaleInEditor = false;
+	
 public:
-
+	virtual void NativePreConstruct() override;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UTexture2D* NoteTexture;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UTexture2D* FlatNoteTexture;
 	
 	UFUNCTION()
-	void SetNotes(const TArray<int8>& NoteSequence);
+	void SetNotes(const TArray<int8>& NoteSequence, FLinearColor NoteColor = FLinearColor::White);
 	UFUNCTION()
-	void CreateNotes(int Size);
+	void CreateNotes(int Size, FLinearColor NoteColor = FLinearColor::White);
 	UFUNCTION()
 	void UpdateFade();
 	UFUNCTION()

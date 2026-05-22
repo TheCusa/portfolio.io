@@ -6,129 +6,308 @@
 #include "CoopGame/Core/CoopGameState.h"
 #include "CoopGame/Core/CoopPlayerState.h"
 #include "CoopGame/EOS/EOSGameInstance.h"
-#include "Kismet/GameplayStatics.h"
-#include "GameFramework/PlayerState.h"
 #include "Components/TileView.h"
 #include "CoopGame/Characters/CharacterDefinition.h"
 #include "CharacterEntry.h"
 #include "Components/Button.h"
+#include "Components/WidgetSwitcher.h"
+#include "CoopGame/Core/PlayerControllers/CoopPlayerController.h"
 #include "Engine/World.h"
-#include "GameFramework/GameModeBase.h"
 
 void ULobbyWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
-	GameState = Cast<ACoopGameState>(UGameplayStatics::GetGameState(this));
-
-	if (GameState)
-	{
-		FName lobbyName = GameState->GetSessionName();
-		LobbyNameText->SetText(FText::FromName(lobbyName));
-		GameState->OnSessionNameReplicated.AddDynamic(this, &ULobbyWidget::SessionNameReplicated);
-
-		PlayerList->SetListItems(GameState->PlayerArray);
-
-		GetWorld()->GetTimerManager().SetTimer(PlayerListUpdateTimerHandle, this, &ULobbyWidget::RefreshPlayerList, 0.5f, true);
-
-		CharacterList->SetListItems(GameState->GetCharacters());
-		CharacterList->OnItemSelectionChanged().AddUObject(this, &ULobbyWidget::PlayerSelectionIssued);
-
-		GameState->OnCharacterSelectionReplicated.AddDynamic(this, &ULobbyWidget::CharacterSelectionReplicated);
-	}
-
+	GameInstance = GetGameInstance<UEOSGameInstance>();
 	PlayerState = GetOwningPlayerState<ACoopPlayerState>();
+	GameState = GetWorld()->GetGameState<ACoopGameState>();
 
+	if (ReadyButton)
+	{
+		ReadyButton->OnClicked.AddDynamic(this, &ULobbyWidget::OnReadyClicked);
+	}
+	
 	if (StartButton)
 	{
 		StartButton->OnClicked.AddDynamic(this, &ULobbyWidget::LoadGame);
-		UpdateStartButtonVisibility();
+	}
+	
+	if (InviteButton)
+	{
+		InviteButton->OnClicked.AddDynamic(this, &ULobbyWidget::OnInviteClicked);
+	}
+	
+	if (LeaveButton)
+	{
+		LeaveButton->OnClicked.AddDynamic(this, &ULobbyWidget::OnLeaveClicked);
 	}
 
-	// Timer per aggiornare periodicamente il bottone start
+	if (PlayerState)
+	{
+		PlayerState->OnPlayerReadyStateChanged.AddDynamic(this, &ULobbyWidget::OnLocalPlayerReadyStateChanged);
+		OnLocalPlayerReadyStateChanged(PlayerState->IsReady());
+	}
+
+	if (GameState)
+	{
+	
+		GameState->OnLobbyPhaseChanged.AddDynamic(this, &ULobbyWidget::OnLobbyPhaseChanged);
+		GameState->OnSessionNameReplicated.AddDynamic(this, &ULobbyWidget::SessionNameReplicated);
+		GameState->OnPlayerSelectionsChanged.AddDynamic(this, &ULobbyWidget::UpdateAllCharacterEntries);
+		
+		if (CharacterList)
+		{
+			const TArray<UCharacterDefinition*>& CharacterDefs = GameState->GetCharacters();
+			if (CharacterDefs.Num() > 0)
+			{
+				UE_LOG(LogTemp, Log, TEXT("NativeConstruct: Populating CharacterList with %d items."), CharacterDefs.Num());
+				CharacterList->SetListItems(CharacterDefs);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("NativeConstruct: GameState has no characters to show."));
+			}
+		}
+		
+		if (PlayerList)
+		{
+			RefreshPlayerList();
+		}
+		
+		OnLobbyPhaseChanged(GameState->GetCurrentLobbyPhase());
+		SessionNameReplicated(GameState->GetSessionName());
+
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("NativeConstruct: GameState is NULLPTR! Lobby UI will not function correctly."));
+	}
+	
+	if (CharacterList)
+	{
+		CharacterList->OnItemClicked().AddUObject(this, &ULobbyWidget::PlayerSelectionIssued);
+	}
+
+	// Timers
+	GetWorld()->GetTimerManager().SetTimer(PlayerListUpdateTimerHandle, this, &ULobbyWidget::RefreshPlayerList, 0.5f, true);
 	GetWorld()->GetTimerManager().SetTimer(StartButtonUpdateTimerHandle, this, &ULobbyWidget::UpdateStartButtonState, 0.5f, true);
+	
+	// Set Button visibility
+	UpdateStartButtonVisibility();
+	if (InviteButton)
+	{
+		InviteButton->SetVisibility(IsHost() ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	}
+}
+
+void ULobbyWidget::OnInviteClicked()
+{
+	if (GameInstance)
+	{
+		GameInstance->ShowFriendsUI();
+	}
+}
+
+void ULobbyWidget::OnReadyClicked()
+{
+	if (PlayerState)
+	{
+		// Call the server RPC to toggle the ready state
+		PlayerState->Server_SetIsReady(!PlayerState->IsReady());
+	}
+}
+
+void ULobbyWidget::OnLeaveClicked()
+{
+	ACoopPlayerController* PC = GetOwningPlayer<ACoopPlayerController>();
+	if (PC)
+	{
+		if (IsHost())
+		{
+			if (GameInstance)
+			{
+				GameInstance->ReturnToMainMenu();
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Log, TEXT("Client requesting to leave session via RPC."));
+			PC->ClientReturnToMainMenuWithTextReason(FText::FromString(TEXT("Leaving session.")));
+		}
+	}
+}
+
+void ULobbyWidget::OnLobbyPhaseChanged(ELobbyPhase NewPhase)
+{
+	if (!LobbyStateSwitcher) return;
+
+	switch (NewPhase)
+	{
+	case ELobbyPhase::ReadyUp:
+		LobbyStateSwitcher->SetActiveWidgetIndex(0);
+		break;
+	case ELobbyPhase::CharacterSelection:
+		LobbyStateSwitcher->SetActiveWidgetIndex(1);
+		FTimerHandle TempHandle;
+		GetWorld()->GetTimerManager().SetTimer(
+			TempHandle, 
+			this, 
+			&ULobbyWidget::UpdateAllCharacterEntries, 
+			0.1f,
+			false
+		);
+		break;
+	}
+}
+
+void ULobbyWidget::OnLocalPlayerReadyStateChanged(const bool bIsReady)
+{
+	if (ReadyButtonText)
+	{
+		ReadyButtonText->SetText(bIsReady ? FText::FromString(TEXT("NOT READY")) : FText::FromString(TEXT("READY")));
+	}
+	if (ReadyButton)
+	{
+		ReadyButton->SetBackgroundColor(bIsReady ? ButtonNotReadyColor : ButtonReadyColor);
+	}
+}
+
+void ULobbyWidget::UpdateAllCharacterEntries()
+{
+	if (!GameState || !CharacterList) return;
+
+	ENetMode NetMode = GetWorld()->GetNetMode();
+	FString RoleString = (NetMode == NM_ListenServer || NetMode == NM_DedicatedServer) ? TEXT("Server/Host") : FString::Printf(TEXT("Client %d"), UE::GetPlayInEditorID() > 0 ? UE::GetPlayInEditorID() - 1 : 0);
+	UE_LOG(LogTemp, Warning, TEXT("--- [%s] Executing UpdateAllCharacterEntries ---"), *RoleString);
+	
+	const int32 NumItems = CharacterList->GetNumItems();
+	for (int32 i = 0; i < NumItems; ++i)
+	{
+		UCharacterDefinition* CharacterDef = Cast<UCharacterDefinition>(CharacterList->GetItemAt(i));
+		if (!CharacterDef) continue;
+		
+		UCharacterEntry* Entry = CharacterList->GetEntryWidgetFromItem<UCharacterEntry>(CharacterDef);
+		
+		if (Entry)
+		{
+			APlayerState* OwningPlayer = GameState->GetPlayerStateForSelectedCharacter(CharacterDef);
+			
+			if (OwningPlayer)
+			{
+				UE_LOG(LogTemp, Log, TEXT("[%s] Updating Entry for '%s': Owner is '%s'"), *RoleString, *CharacterDef->CharacterName.ToString(), *OwningPlayer->GetPlayerName());
+				Entry->SetCharacterSelected(true);
+				Entry->SetOwningPlayerName(OwningPlayer->GetPlayerName());
+			}
+			else
+			{
+				UE_LOG(LogTemp, Log, TEXT("[%s] Updating Entry for '%s': No owner."), *RoleString, *CharacterDef->CharacterName.ToString());
+				Entry->SetCharacterSelected(false);
+				Entry->SetOwningPlayerName(FString());
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[%s] Could not find entry widget for character '%s' at index %d"), *RoleString, *CharacterDef->CharacterName.ToString(), i);
+		}
+	}
 }
 
 void ULobbyWidget::NativeDestruct()
 {
-	// Pulisci i timer per evitare crash
+	// Clean timer for avoid crash
 	if (GetWorld())
 	{
 		GetWorld()->GetTimerManager().ClearTimer(PlayerListUpdateTimerHandle);
 		GetWorld()->GetTimerManager().ClearTimer(StartButtonUpdateTimerHandle);
+		GetWorld()->GetTimerManager().ClearTimer(InitialSyncTimerHandle);
 	}
 
 	Super::NativeDestruct();
 }
 
-void ULobbyWidget::SessionNameReplicated(const FName& newSessionName)
+void ULobbyWidget::SessionNameReplicated(const FName& NewSessionName)
 {
-	LobbyNameText->SetText(FText::FromName(newSessionName));
+	LobbyNameText->SetText(FText::FromName(NewSessionName));
 }
 
-void ULobbyWidget::CharacterSelectionReplicated(const UCharacterDefinition* selected, const UCharacterDefinition* deselected)
+bool SortPlayerStates(const APlayerState& A, const APlayerState& B)
 {
-	if (selected != nullptr)
+	// If A = server, B = client, A first
+	if (A.GetOwner() && A.GetOwner()->HasAuthority() && (!B.GetOwner() || !B.GetOwner()->HasAuthority()))
 	{
-		UCharacterEntry* characterEntry = CharacterList->GetEntryWidgetFromItem<UCharacterEntry>(selected);
-		if (characterEntry)
-		{
-			characterEntry->SetCharacterSelected(true);
-		}
+		return true;
 	}
-
-	if (deselected != nullptr)
+	// If B = server, A = client, B first
+	if (B.GetOwner() && B.GetOwner()->HasAuthority() && (!A.GetOwner() || !A.GetOwner()->HasAuthority()))
 	{
-		UCharacterEntry* characterEntry = CharacterList->GetEntryWidgetFromItem<UCharacterEntry>(deselected);
-		if (characterEntry)
-		{
-			characterEntry->SetCharacterSelected(false);
-		}
+		return false;
 	}
-
-	// Aggiorna lo stato del bottone start
-	UpdateStartButtonState();
+	return A.GetPlayerId() < B.GetPlayerId();
 }
 
 void ULobbyWidget::RefreshPlayerList()
 {
-	if (GameState)
+	if (GameState && PlayerList) 
 	{
-		PlayerList->SetListItems(GameState->PlayerArray);
-		// Aggiorna anche il bottone quando cambiano i giocatori
+		TArray<APlayerState*> PlayerStates = GameState->PlayerArray;
+		PlayerStates.Sort([](const APlayerState& A, const APlayerState& B)
+				{
+					const bool bAIsHost = A.GetOwner() && A.GetOwner()->HasAuthority();
+					const bool bBIsHost = B.GetOwner() && B.GetOwner()->HasAuthority();
+
+					if (bAIsHost != bBIsHost)
+					{
+						return bAIsHost;
+					}
+					return A.GetPlayerId() < B.GetPlayerId();
+				});
+		
+		PlayerList->SetListItems(PlayerStates);
 		UpdateStartButtonState();
 	}
 }
 
 void ULobbyWidget::PlayerSelectionIssued(UObject* Item)
 {
-	UCharacterDefinition* SelectedCharacterDefinition = Cast<UCharacterDefinition>(Item);
-	if (SelectedCharacterDefinition && PlayerState)
-	{
-		// La logica di selezione/deselezione è gestita nel PlayerState
-		PlayerState->Server_IssueCharacterPicked(SelectedCharacterDefinition);
+	UE_LOG(LogTemp, Warning, TEXT("ULobbyWidget::PlayerSelectionIssued - Click detected on an item."));
 
-		// Deseleziona l'item nella UI per evitare problemi di stato
-		CharacterList->ClearSelection();
+	UCharacterDefinition* SelectedCharacterDefinition = Cast<UCharacterDefinition>(Item);
+	
+	if (!SelectedCharacterDefinition)
+	{
+		UE_LOG(LogTemp, Error, TEXT("ULobbyWidget::PlayerSelectionIssued - Clicked item could not be cast to UCharacterDefinition."));
+		return;
+	}
+	
+	UE_LOG(LogTemp, Warning, TEXT("ULobbyWidget::PlayerSelectionIssued - Selected character is: %s"), *SelectedCharacterDefinition->CharacterName.ToString());
+	
+	if (PlayerState)
+	{
+		PlayerState->Server_IssueCharacterPicked(SelectedCharacterDefinition);
+		if (CharacterList)
+		{
+			CharacterList->SetSelectedItem(nullptr);
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("ULobbyWidget::PlayerSelectionIssued - PlayerState is NOT valid! Cannot send selection to server."));
 	}
 }
 
 void ULobbyWidget::LoadGame()
 {
-	// Solo l'host può avviare il gioco
 	if (!IsHost())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Only host can start the game"));
 		return;
 	}
-
-	// Verifica che il gioco possa essere avviato
+	
 	if (!GameState || !GameState->CanStartGame())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Cannot start game: not all players have selected characters"));
 		return;
 	}
-
-	UEOSGameInstance* GameInstance = GetGameInstance<UEOSGameInstance>();
+	
 	if (GameInstance)
 	{
 		GameInstance->LoadGameLevel();
@@ -137,12 +316,10 @@ void ULobbyWidget::LoadGame()
 
 bool ULobbyWidget::IsHost() const
 {
-	// Controlla se questo client è l'host verificando la presenza del GameMode
-	UWorld* World = GetWorld();
-	if (World)
+	APlayerController* PC = GetOwningPlayer();
+	if (PC)
 	{
-		AGameModeBase* GameMode = World->GetAuthGameMode();
-		return GameMode != nullptr; // Solo l'host ha un GameMode valido
+		return PC->HasAuthority();
 	}
 	return false;
 }
@@ -151,7 +328,6 @@ void ULobbyWidget::UpdateStartButtonVisibility()
 {
 	if (StartButton)
 	{
-		// Mostra il bottone solo all'host
 		StartButton->SetVisibility(IsHost() ? ESlateVisibility::Visible : ESlateVisibility::Hidden);
 	}
 }
@@ -160,11 +336,9 @@ void ULobbyWidget::UpdateStartButtonState()
 {
 	if (StartButton && IsHost())
 	{
-		// Abilita il bottone solo se il gioco può essere avviato
 		bool bCanStart = GameState ? GameState->CanStartGame() : false;
 		StartButton->SetIsEnabled(bCanStart);
-
-		// Aggiorna il tooltip per dare feedback all'utente
+		
 		if (bCanStart)
 		{
 			StartButton->SetToolTipText(FText::FromString(TEXT("Start Game")));

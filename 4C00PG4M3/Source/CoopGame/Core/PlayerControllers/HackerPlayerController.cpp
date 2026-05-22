@@ -13,7 +13,7 @@
 #include "CoopGame/Widgets/HackerMonitorWidget.h"
 #include "CoopGame/Core/Puzzle/HackerMonitor.h"
 #include "CoopGame/Widgets/DigitDisplayWidget.h"
-
+#include "CoopGame/Core/LevelStreamingManager.h"
 
 void AHackerPlayerController::BeginPlay()
 {
@@ -21,6 +21,7 @@ void AHackerPlayerController::BeginPlay()
 
     TArray<AActor*> FoundActors;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), AHackerMonitor::StaticClass(), FoundActors);
+    StreamingManager = Cast<ALevelStreamingManager>(UGameplayStatics::GetActorOfClass(this, ALevelStreamingManager::StaticClass()));
 
     if (FoundActors.Num() > 0)
     {
@@ -90,15 +91,26 @@ void AHackerPlayerController::ReceiveArrayCode_Implementation(const TArray<int8>
             break;
         }
         case GameUserWidget::None:
-        {
-            HackerMonitor->TriggerAudioSequenceForClient(this,Array);
-            break;
-        }
-
+            {
+                UHackerPianoWidget* HackerSoundDisplay = Cast<UHackerPianoWidget>(ActiveWidget);
+                if (!HackerSoundDisplay)
+                {
+                    UE_LOG(LogTemp, Error, TEXT("Active widget is not HackerSoundDisplay"));
+                    return;
+                }
+                HackerSoundDisplay->SetNotes(Array, FLinearColor::Red);
+                HackerMonitor->TriggerAudioSequenceForClient(this,Array);
+                break;
+            }
         default:
         {
             UE_LOG(LogTemp, Error, TEXT("DEFAULT"));
             break;
         }
     }
+    
+}
+void AHackerPlayerController::Server_UpdateFeed_Implementation()
+{
+    StreamingManager->bHasInitializedCameraFeed = true;
 }

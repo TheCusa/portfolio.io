@@ -17,7 +17,7 @@ public:
 		this->ConnectionDrawingPolicy = new FENConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj, true);
 	}
 
-	virtual void DrawConnection(int32 LayerId, const FVector2D& Start, const FVector2D& End, const FConnectionParams& Params) override
+	virtual void DrawConnection(int32 LayerId, const FVector2f& Start, const FVector2f& End, const FConnectionParams& Params) override
 	{
 		this->ConnectionDrawingPolicy->SetMousePosition(LocalMousePosition);
 		this->ConnectionDrawingPolicy->DrawConnection(LayerId, Start, End, Params);
@@ -26,28 +26,28 @@ public:
 
 	virtual void DrawSplineWithArrow(const FGeometry& StartGeom, const FGeometry& EndGeom, const FConnectionParams& Params) override
 	{
-		const FVector2D StartGeomDrawSize = StartGeom.GetDrawSize();
-		const FVector2D StartCenter = FVector2D(
+		const FVector2f StartGeomDrawSize = StartGeom.GetDrawSize();
+		const FVector2f StartCenter = FVector2f(
 			StartGeom.AbsolutePosition.X + StartGeomDrawSize.X / 2,
 			StartGeom.AbsolutePosition.Y + StartGeomDrawSize.Y);
 
-		const FVector2D EndGeomDrawSize = EndGeom.GetDrawSize();
-		const FVector2D EndCenter = FVector2D(
+		const FVector2f EndGeomDrawSize = EndGeom.GetDrawSize();
+		const FVector2f EndCenter = FVector2f(
 			EndGeom.AbsolutePosition.X + EndGeomDrawSize.X / 2,
 			EndGeom.AbsolutePosition.Y);
 
 		DrawSplineWithArrow(StartCenter, EndCenter, Params);
 	}
 
-	virtual void DrawPreviewConnector(const FGeometry& PinGeometry, const FVector2D& StartPoint, const FVector2D& EndPoint, UEdGraphPin* Pin) override
+	virtual void DrawPreviewConnector(const FGeometry& PinGeometry, const FVector2f& StartPoint, const FVector2f& EndPoint, UEdGraphPin* Pin) override
 	{
 		FConnectionParams Params;
 		DetermineWiringStyle(Pin, nullptr, /*inout*/ Params);
 
 		if (Pin->Direction == EEdGraphPinDirection::EGPD_Output)
 		{
-			const FVector2D GeomDrawSize = PinGeometry.GetDrawSize();
-			const FVector2D Center = FVector2D(
+			const FVector2f GeomDrawSize = PinGeometry.GetDrawSize();
+			const FVector2f Center = FVector2f(
 				PinGeometry.AbsolutePosition.X + GeomDrawSize.X / 2,
 				PinGeometry.AbsolutePosition.Y + GeomDrawSize.Y);
 
@@ -55,8 +55,8 @@ public:
 		}
 		else
 		{
-			const FVector2D GeomDrawSize = PinGeometry.GetDrawSize();
-			const FVector2D Center = FVector2D(
+			const FVector2f GeomDrawSize = PinGeometry.GetDrawSize();
+			const FVector2f Center = FVector2f(
 				PinGeometry.AbsolutePosition.X + GeomDrawSize.X / 2,
 				PinGeometry.AbsolutePosition.Y);
 
@@ -64,20 +64,20 @@ public:
 		}
 	}
 
-	virtual void DrawSplineWithArrow(const FVector2D& StartAnchorPoint, const FVector2D& EndAnchorPoint, const FConnectionParams& Params) override
+	virtual void DrawSplineWithArrow(const FVector2f& StartAnchorPoint, const FVector2f& EndAnchorPoint, const FConnectionParams& Params) override
 	{
 		// bUserFlag1 indicates that we need to reverse the direction of connection (used by debugger)
-		const FVector2D& P0 = Params.bUserFlag1 ? EndAnchorPoint : StartAnchorPoint;
-		const FVector2D& P1 = Params.bUserFlag1 ? StartAnchorPoint : EndAnchorPoint;
+		const FVector2f& P0 = Params.bUserFlag1 ? EndAnchorPoint : StartAnchorPoint;
+		const FVector2f& P1 = Params.bUserFlag1 ? StartAnchorPoint : EndAnchorPoint;
 
 		Internal_DrawLineWithStraightArrow(P0, P1, Params);
 	}
 
-	void Internal_DrawLineWithStraightArrow(const FVector2D& StartAnchorPoint, const FVector2D& EndAnchorPoint, const FConnectionParams& Params)
+	void Internal_DrawLineWithStraightArrow(const FVector2f& StartAnchorPoint, const FVector2f& EndAnchorPoint, const FConnectionParams& Params)
 	{
 		DrawConnection(WireLayerID, StartAnchorPoint, EndAnchorPoint, Params);
 
-		const FVector2D ArrowDrawPos = EndAnchorPoint - ArrowRadius;
+		const FVector2f ArrowDrawPos = EndAnchorPoint - ArrowRadius;
 
 		FSlateDrawElement::MakeRotatedBox(
 			DrawElementsList,
@@ -86,7 +86,7 @@ public:
 			ArrowImage,
 			ESlateDrawEffect::None,
 			HALF_PI,
-			TOptional<FVector2D>(),
+			TOptional<FVector2f>(),
 			FSlateDrawElement::RelativeToElement,
 			Params.WireColor
 		);

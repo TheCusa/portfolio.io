@@ -21,7 +21,7 @@ void ENUpdatePopup::Register()
     FString UpdateConfigPath = IPluginManager::Get().FindPlugin(TEXT("ElectronicNodes"))->GetBaseDir();
     UpdateConfigPath /= "UpdateConfig.ini";
     const FString UpdateConfigFile = FPaths::ConvertRelativePathToFull(FConfigCacheIni::NormalizeConfigIniPath(UpdateConfigPath));
-    const FString CurrentPluginVersion = "3.15";
+    const FString CurrentPluginVersion = "3.16";
 
     FString LoadedConfig;
     if (FPaths::FileExists(UpdateConfigFile))
@@ -83,7 +83,7 @@ void ENUpdatePopup::Open()
 		[
 			SNew(STextBlock)
 			.Font(HeadingFont)
-			.Text(FText::FromString("Electronic Nodes v3.15"))
+			.Text(FText::FromString("Electronic Nodes v3.16"))
 		]
 		+ SVerticalBox::Slot()
 		.FillHeight(1.0)
@@ -104,7 +104,14 @@ First thing first, if you've been enjoying using it, it would mean a lot if you 
 
 I also made a marketplace search engine called <a id="browser" href="https://bit.ly/3uhO9CG">Orbital Market</>. It's completely free, super fast and full of filters to refine your search.
 
-But let's keep it short, here are the cool new features (and bugfixes) of version 3.15!
+But let's keep it short, here are the cool new features (and bugfixes) of version 3.16!
+
+
+<LargeText>Version 3.16</>
+
+<RichTextBlock.Bold>Features</>
+
+* Fix 5.6 compatibility
 
 
 <LargeText>Version 3.15</>

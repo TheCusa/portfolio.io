@@ -50,32 +50,32 @@ public:
 	{
 	}
 
-	virtual void DrawConnection(int32 LayerId, const FVector2D& Start, const FVector2D& End, const FConnectionParams& Params) override;
+	virtual void DrawConnection(int32 LayerId, const FVector2f& Start, const FVector2f& End, const FConnectionParams& Params) override;
 
-	void ENComputeClosestPoint(const FVector2D& Start, const FVector2D& End);
-	void ENComputeClosestPointDefault(const FVector2D& Start, const FVector2D& StartTangent, const FVector2D& End, const FVector2D& EndTangent);
-	void ENDrawBubbles(const FVector2D& Start, const FVector2D& StartTangent, const FVector2D& End, const FVector2D& EndTangent);
-	void ENDrawArrow(const FVector2D& Start, const FVector2D& End);
+	void ENComputeClosestPoint(const FVector2f& Start, const FVector2f& End);
+	void ENComputeClosestPointDefault(const FVector2f& Start, const FVector2f& StartTangent, const FVector2f& End, const FVector2f& EndTangent);
+	void ENDrawBubbles(const FVector2f& Start, const FVector2f& StartTangent, const FVector2f& End, const FVector2f& EndTangent);
+	void ENDrawArrow(const FVector2f& Start, const FVector2f& End);
 
-	void DrawDebugPoint(const FVector2D& Position, FLinearColor Color);
+	void DrawDebugPoint(const FVector2f& Position, FLinearColor Color);
 
 private:
 	const UElectronicNodesSettings& ElectronicNodesSettings = *GetDefault<UElectronicNodesSettings>();
 	bool ReversePins;
 	float MinXOffset;
 	float ClosestDistanceSquared;
-	FVector2D ClosestPoint;
+	FVector2f ClosestPoint;
 	TArray<ENRibbonConnection> RibbonConnections;
-	TMap<FVector2D, int> PinsOffset;
+	TMap<FVector2f, int> PinsOffset;
 
 	bool IsTree = false;
 
-	void ENCorrectZoomDisplacement(FVector2D& Start, FVector2D& End) const;
-	void ENProcessRibbon(int32 LayerId, FVector2D& Start, FVector2D& StartDirection, FVector2D& End, FVector2D& EndDirection, const FConnectionParams& Params);
+	void ENCorrectZoomDisplacement(FVector2f& Start, FVector2f& End) const;
+	void ENProcessRibbon(int32 LayerId, FVector2f& Start, FVector2f& StartDirection, FVector2f& End, FVector2f& EndDirection, const FConnectionParams& Params);
 	bool ENIsRightPriority(const FConnectionParams& Params);
 	int32 ENGetZoomLevel();
 	int8 ENGetPinMembersCount(const UEdGraphPin* Pin);
-	void ENDrawMainWire(FENPathDrawer* PathDrawer, EWireStyle WireStyle, FVector2D& Start, FVector2D& StartDirection, FVector2D& End, FVector2D& EndDirection, const FConnectionParams& Params);
+	void ENDrawMainWire(FENPathDrawer* PathDrawer, EWireStyle WireStyle, FVector2f& Start, FVector2f& StartDirection, FVector2f& End, FVector2f& EndDirection, const FConnectionParams& Params);
 
 	TSharedPtr<SGraphPanel> GetGraphPanel();
 	void BuildRelatedNodes(UEdGraphNode* Node, TArray<UEdGraphNode*>& RelatedNodes, bool InputCheck, bool OutputCheck);

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CoopGame/FirstPuzzle/InteractableActor.h"
 #include "GameFramework/Actor.h"
 #include "HackerMonitor.generated.h"
 
@@ -11,7 +12,7 @@ class UStaticMeshComponent;
 class UWidgetComponent;
 
 UCLASS()
-class COOPGAME_API AHackerMonitor : public AActor
+class COOPGAME_API AHackerMonitor : public AInteractableActor
 {
 	GENERATED_BODY()
 	
@@ -28,6 +29,9 @@ public:
 	UFUNCTION()
 	void StopAudioSequence() const;
 
+	UFUNCTION(BlueprintCallable)
+	virtual void ExecuteAction() override;
+
 protected:
 	// Static Mesh Component
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -39,5 +43,12 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Audio")
 	UAudioSequenceComponent* AudioSequenceComponent;
+
+private:
+	
+	void LoadInputMode();
+	void RestoreInputMode();
+
+	bool IsActive;
 	
 };

@@ -14,25 +14,25 @@ class FENPathDrawer
 public:
 	FENPathDrawer(int32& LayerId, float& ZoomFactor, bool RightPriority, const FConnectionParams* Params, FSlateWindowElementList* DrawElementsList, FENConnectionDrawingPolicy* ConnectionDrawingPolicy);
 
-	void DrawManhattanWire(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection);
-	void DrawSubwayWire(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection);
-	void DrawDefaultWire(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection);
+	void DrawManhattanWire(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection);
+	void DrawSubwayWire(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection);
+	void DrawDefaultWire(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection);
 
-	void DrawIntersectionRadius(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection);
-	void DrawIntersectionDiagRadius(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection);
+	void DrawIntersectionRadius(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection);
+	void DrawIntersectionDiagRadius(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection);
 
-	void DrawSimpleRadius(const FVector2D& Start, const FVector2D& StartDirection, const int32& AngleDeg, FVector2D& out_End, FVector2D& out_EndDirection, bool Backward = false);
-	void DrawUTurn(const FVector2D& Start, const FVector2D& StartDirection, float Direction, FVector2D& out_End, FVector2D& out_EndDirection, bool Backward = false);
-	void DrawCorrectionOrtho(const FVector2D& Start, const FVector2D& StartDirection, const float& Displacement, FVector2D& out_End, FVector2D& out_EndDirection, bool Backward = false);
+	void DrawSimpleRadius(const FVector2f& Start, const FVector2f& StartDirection, const int32& AngleDeg, FVector2f& out_End, FVector2f& out_EndDirection, bool Backward = false);
+	void DrawUTurn(const FVector2f& Start, const FVector2f& StartDirection, float Direction, FVector2f& out_End, FVector2f& out_EndDirection, bool Backward = false);
+	void DrawCorrectionOrtho(const FVector2f& Start, const FVector2f& StartDirection, const float& Displacement, FVector2f& out_End, FVector2f& out_EndDirection, bool Backward = false);
 
 	float GetRadiusOffset(const int32& AngleDeg = 0, bool Perpendicular = false);
 	float GetRadiusTangent(const int32& AngleDeg = 0);
 	float GetIntersectionOffset(const int32& AngleDeg = 0, bool Diagonal = false);
 
-	void DrawOffset(FVector2D& Start, FVector2D& StartDirection, const float& Offset, bool Backward = false);
-	void DrawLine(const FVector2D& Start, const FVector2D& End);
-	void DrawRadius(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection, const int32& AngleDeg);
-	void DrawSpline(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection);
+	void DrawOffset(FVector2f& Start, FVector2f& StartDirection, const float& Offset, bool Backward = false);
+	void DrawLine(const FVector2f& Start, const FVector2f& End);
+	void DrawRadius(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection, const int32& AngleDeg);
+	void DrawSpline(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection);
 
 	void DebugColor(const FLinearColor& Color);
 

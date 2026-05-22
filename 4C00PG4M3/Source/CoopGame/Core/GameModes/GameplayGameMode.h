@@ -17,7 +17,9 @@ class COOPGAME_API AGameplayGameMode : public AGameModeBase
 public:
 	AGameplayGameMode();
 	void TickCountdown();
-
+	void OnTimerExpired();
+	FTimerHandle CountdownTimerHandle;
+	
 protected:
 	virtual void BeginPlay() override;
 	virtual void PostLogin(APlayerController* NewPlayer) override;
@@ -35,7 +37,7 @@ protected:
 
 
 	UPROPERTY(EditDefaultsOnly, Category = "Game Time", meta = (DisplayName = "Countdown"))
-	int32 GameDuration = 60 * 5; // 5 minutes
+	int32 GameDuration = 60 * 60; // 5 minutes
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Character Spawns", meta = (DisplayName = "Hacker Data Asset"))
 	class UCharacterDefinition* HackerCharacterDefinition;
@@ -52,7 +54,7 @@ protected:
 private:
 	int32 DevelopmentPlayerCounter = 0;
 	TSubclassOf<APlayerController> GetPlayerControllerClassForIndex(int32 PlayerIndex);
-	FTimerHandle CountdownTimerHandle;
+	
 	
 	UPROPERTY(EditDefaultsOnly, Category = "DEBUG")
 	bool bIsHackerServer;

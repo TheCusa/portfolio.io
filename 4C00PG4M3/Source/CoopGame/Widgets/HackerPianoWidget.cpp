@@ -2,7 +2,6 @@
 
 #include "HackerPianoWidget.h"
 
-#include "NavigationSystemTypes.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/HorizontalBoxSlot.h"
@@ -13,7 +12,25 @@ void UHackerPianoWidget::NativeConstruct()
 	Super::NativeConstruct();
 }
 
-void UHackerPianoWidget::SetNotes(const TArray<int8>& NoteSequence)
+void UHackerPianoWidget::NativePreConstruct()
+{
+	Super::NativePreConstruct();
+	//Only for Design in Editor
+	if (IsDesignTime() && bShowDebugScaleInEditor)
+	{
+		TArray<int8> DebugSequence;
+		const int32 StartIndex = static_cast<int32>(Notes::DO_1);
+		const int32 EndIndex   = static_cast<int32>(Notes::SI_2);
+
+		for (int32 i = StartIndex; i <= EndIndex; i++) 
+		{
+			DebugSequence.Add(static_cast<int8>(i));
+		}
+		SetNotes(DebugSequence);
+	}
+}
+
+void UHackerPianoWidget::SetNotes(const TArray<int8>& NoteSequence, FLinearColor NoteColor)
 {
 	if (!IsValid(NoteTexture) || !IsValid(FlatNoteTexture))
 	{
@@ -21,7 +38,7 @@ void UHackerPianoWidget::SetNotes(const TArray<int8>& NoteSequence)
 		return;
 	}
 
-	CreateNotes(NoteSequence.Num());
+	CreateNotes(NoteSequence.Num(), NoteColor);
 
 	for (int32 i = 0; i < NoteSequence.Num(); i++)
 	{
@@ -36,7 +53,7 @@ void UHackerPianoWidget::SetNotes(const TArray<int8>& NoteSequence)
 				NoteBoxes[i]->SetDesiredSizeOverride(V.bIsFlat ? FVector2D(128,128) : FVector2D(64,64));
 				NoteBoxes[i]->SetBrushFromTexture(V.bIsFlat ? FlatNoteTexture : NoteTexture);
 				NoteBoxes[i]->SetVisibility(ESlateVisibility::Visible);
-				HSlot->SetPadding(FMargin(0.f, V.StaffIndex * -42.5f, 0.f, 0.f));
+				HSlot->SetPadding(FMargin(0.f, V.StaffIndex * (-GlobalNoteVerticalOffset), 0.f, 0.f));
 			}
 			else
 			{
@@ -49,7 +66,7 @@ void UHackerPianoWidget::SetNotes(const TArray<int8>& NoteSequence)
 
 
 
-void UHackerPianoWidget::CreateNotes(int Size)
+void UHackerPianoWidget::CreateNotes(int Size, FLinearColor NoteColor)
 {
 	NoteSequenceContainer->ClearChildren();
 	NoteBorders.Reset();
@@ -61,7 +78,7 @@ void UHackerPianoWidget::CreateNotes(int Size)
 		UImage* NoteImage = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass());
 		
 		NoteImage->SetBrushFromTexture(nullptr); 
-
+		NoteImage->SetColorAndOpacity(NoteColor);
 		Border->SetDesiredSizeScale(FVector2D(512.f, 512.f));
 		Border->SetBrushColor(FLinearColor::Transparent);
 		Border->SetHorizontalAlignment(HAlign_Center);
@@ -112,10 +129,9 @@ void UHackerPianoWidget::ResetTimer()
 
 float UHackerPianoWidget::GetNoteOffset(Notes Note)
 {
-	constexpr float SemitoneStep = 42.5f;
 	int32 CenterIndex = static_cast<int32>(Notes::SI_1);
 	int32 SemitoneOffset = static_cast<int32>(Note) - CenterIndex;
-	return SemitoneOffset * -SemitoneStep;
+	return SemitoneOffset * -GlobalNoteVerticalOffset;
 }
 
 TOptional<FNoteVisualInfo> UHackerPianoWidget::GetNoteVisualInfo(Notes Note)

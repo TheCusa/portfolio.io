@@ -3,16 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "InputAction.h"
 #include "GameFramework/Character.h"
-#include "EnhancedInputSubsystemInterface.h"
-#include "CoopGame/Core/PlayerControllers/CoopPlayerController.h"
-#include "EnhancedInputComponent.h"
-#include "EnhancedInputSubsystems.h"
-#include "InputActionValue.h"
 #include "Logging/LogMacros.h"
 #include "CharacterParentClass.generated.h"
 
+class UGameMenuWidget;
+struct FInputActionValue;
+class UEnhancedInputLocalPlayerSubsystem;
+class UInputMappingContext;
 class USpringArmComponent;
 class UCameraComponent;
 class UUserWidget;
@@ -28,60 +26,75 @@ class COOPGAME_API ACharacterParentClass : public ACharacter
 
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-	USpringArmComponent* CameraBoom;
+	TObjectPtr<USpringArmComponent> CameraBoom;
 
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-	UCameraComponent* FollowCamera;
+	TObjectPtr<UCameraComponent> FollowCamera;
 
+	/** Widget Interaction Component */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UWidgetInteractionComponent> WidgetInteractionComp;
+	
 	/** MappingContext */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputMappingContext* GameplayMappingContext;
+	TObjectPtr<UInputMappingContext> GameplayMappingContext;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI Navigation Input", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputMappingContext> UIMappingContext;
+	
 	/** Jump Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputAction* JumpAction;
+	TObjectPtr<UInputAction> JumpAction;
 
 	/** Move Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputAction* MoveAction;
+	TObjectPtr<UInputAction> MoveAction;
 
 	/** Look Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputAction* LookAction;
+	TObjectPtr<UInputAction> LookAction;
 
 	/** Interact Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputAction* InteractAction;
+	TObjectPtr<UInputAction> InteractAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI Navigation Input", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> LeftClickAction;
 
-public:
-
-	UPROPERTY(EditDefaultsOnly, Category="UI Navigation Input")
-	UInputAction* IA_Left;
-
-	UPROPERTY(EditDefaultsOnly, Category="UI Navigation Input")
-	UInputAction* IA_Right;
-
-	UPROPERTY(EditDefaultsOnly, Category="Game Interaction")
-	UInputAction* IA_CloseWidget;
-
-	UPROPERTY(EditDefaultsOnly, Category="Game Interaction")
-	UInputAction* IA_OpenPuzzle1Widget;
-
-	UPROPERTY(EditDefaultsOnly, Category="UI Navigation Input")
-	UInputMappingContext* UIMappingContext;
-
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
-	UWidgetInteractionComponent* WidgetInteractionComp;
-
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI Navigation Input", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> OpenMenuAction;
 	
-	// Sets default values for this character's properties
-	ACharacterParentClass();
+	// Nearby object reference
+	UPROPERTY()
+	TObjectPtr<AActor> NearbyInteractableObject;
 
+	// Widget instance
+	UPROPERTY()
+	TObjectPtr<UUserWidget> InteractUIWidget;
+
+	UPROPERTY()
+	TObjectPtr<UGameMenuWidget> GameMenuWidget;
+
+	// Local player enhanced input subsystem reference
+	UPROPERTY()
+	TObjectPtr<UEnhancedInputLocalPlayerSubsystem> Subsystem;
+
+	UPROPERTY(EditAnywhere, Category = "SFX", meta = (AllowPrivateAccess = "true"))
+	USoundBase* JumpSound;
+
+	void ShowUIPrompt();
+	void HideUIPrompt();
+
+	bool bIsMenuOpen = false;
 protected:
+	// Widget BP class reference. Assignable from deatils panel
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
+	TSubclassOf<UUserWidget> InteractUIWidgetClass;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
+	TSubclassOf<UGameMenuWidget> GameMenuWidgetClass;
+	
 	// References to UI Mapping context and Input Actions
 
 	/** Called for movement input */
@@ -92,29 +105,29 @@ protected:
 	
 	/** Called for interact input */
 	void Interact();
-	
-	// Called when the game starts or when spawned
+	/** Called for Jump input */
+	void Jump();
+
+	/** Called when the game starts or when spawned */
 	virtual void BeginPlay() override;
 	
-	// Widget BP class reference. Assignable from deatils panel
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
-	TSubclassOf<UUserWidget> InteractUIWidgetClass;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI Navigation Input")
-	TObjectPtr<UInputAction> LeftClickAction; 
-	
+	/** Called for click input */
 	void OnLeftClickPressed();
 	void OnLeftClickReleased();
-public:	
+
+	/** Called for open menu*/
+	void OpenMenu();
+
+public:
+	
+	// Sets default values for this character's properties
+	ACharacterParentClass();
+	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	void ForwardHandleLeft(const FInputActionValue& Value);
-	void ForwardHandleRight(const FInputActionValue& Value);
-	void ForwardOpenWidget(const FInputActionValue& Value);// , GameUserWidget WidgetName);
-	void ForwardCloseWidget(const FInputActionValue& Value);
 
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
@@ -126,22 +139,10 @@ public:
 	// Clear the player's nearby object.
 	void ClearNearbyInteractableObject(AActor* InteractableObject);
 
-	// Lock player movement component.
 	void LockCharacterMovement() const;
-
-	// Unock player movement component 
 	void UnlockCharacterMovement() const;
 
-private:
-	// Nearby object reference
-	AActor* NearbyInteractableObject;
-
-	// Widget istance
-	UUserWidget* InteractUIWidget;
-
-	// Local player enanched input subsystem reference
-	UEnhancedInputLocalPlayerSubsystem* Subsystem;
-
-	void ShowUIPrompt();
-	void HideUIPrompt();
+	// Stop character movemnet silulation on server
+	UFUNCTION(Server, Reliable)
+	void Server_StopCharacterMovement();
 };

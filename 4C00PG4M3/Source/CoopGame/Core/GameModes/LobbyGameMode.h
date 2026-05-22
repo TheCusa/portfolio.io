@@ -15,6 +15,9 @@ class COOPGAME_API ALobbyGameMode : public AGameModeBase
 	GENERATED_BODY()
 public:
 	ALobbyGameMode();
+	virtual void Logout(AController* Exiting) override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
+	
 protected:
-	 virtual void InitGameState() override;
+	virtual void InitGameState() override;
 };

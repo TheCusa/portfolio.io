@@ -31,7 +31,9 @@ class COOPGAME_API ACoopPlayerController : public APlayerController
 public:
 	UFUNCTION(Exec)
 	void Say(const FString& Message);
-
+	
+	UFUNCTION(Client, Reliable)
+	void Client_GameOver();
 protected:
 	virtual void OnRep_PlayerState() override;
 
@@ -46,6 +48,13 @@ protected:
 	UFUNCTION(Client, Reliable)
 	void Client_ReceiveMessage(const FString& Message, const FString& SenderName);
 
+	virtual void BeginPlay() override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> GameOverWidgetClass;
+
+	UPROPERTY()
+	UUserWidget* GameOverWidgetInstance;
 public:
 	//Debug for code checking
 	UFUNCTION(NetMulticast, Reliable)

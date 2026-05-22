@@ -6,92 +6,174 @@
 #include "CoopGame/Core/CoopPlayerState.h"
 #include "GameFramework/PlayerState.h"
 
-void ACoopGameState::SetSessionName(const FName& newSessionName)
+void ACoopGameState::SetSessionName(const FName& NewSessionName)
 {
-	SessionName = newSessionName;
+	SessionName = NewSessionName;
 }
 
-const TArray<class UCharacterDefinition*>& ACoopGameState::GetCharacters() const
+void ACoopGameState::CheckAndAdvanceLobbyPhase()
 {
-	return Characters;
-}
-
-bool ACoopGameState::IsCharacterSelected(const UCharacterDefinition* characterToCheck) const
-{
-	return SelectedCharacters.Contains(characterToCheck);
-}
-
-void ACoopGameState::UpdateCharacterSelection(const UCharacterDefinition* selected, const UCharacterDefinition* deselected, APlayerState* Player)
-{
-	if (!HasAuthority()) return;
-
-	// Se c'� una deselezione, rimuovila
-	if (deselected != nullptr)
+	if (!HasAuthority())
 	{
-		PlayerCharacterSelections.Remove(Player);
-		SelectedCharacters.Remove(deselected);
+		return;
 	}
-
-	// Se c'� una selezione, aggiungila
-	if (selected != nullptr)
+	
+	// If a player leaves, cancel any transition and revert to the ReadyUp phase.
+	if (PlayerArray.Num() < MaxPlayers)
 	{
-		// Prima rimuovi eventuali selezioni precedenti del giocatore
-		const UCharacterDefinition* const* PreviousSelection = PlayerCharacterSelections.Find(Player);
-		if (PreviousSelection)
+		CancelPhaseTransition();
+		if (CurrentLobbyPhase != ELobbyPhase::ReadyUp)
 		{
-			SelectedCharacters.Remove(*PreviousSelection);
+			CurrentLobbyPhase = ELobbyPhase::ReadyUp;
+			OnRep_LobbyPhase();
 		}
-
-		PlayerCharacterSelections.Add(Player, selected);
-		SelectedCharacters.Add(selected);
+		return;
+	}
+	
+	// Check if all connected players are marked as ready.
+	bool bAllPlayersReady = true;
+	for (APlayerState* PS : PlayerArray)
+	{
+		const ACoopPlayerState* CoopPS = Cast<ACoopPlayerState>(PS);
+		if (!CoopPS || !CoopPS->IsReady())
+		{
+			bAllPlayersReady = false;
+			break;
+		}
 	}
 
-	NetMulticast_UpdatedCharacterSelection(selected, deselected);
+	if (bAllPlayersReady)
+	{
+		if (CurrentLobbyPhase == ELobbyPhase::ReadyUp && !GetWorld()->GetTimerManager().IsTimerActive(PhaseTransitionTimerHandle))
+		{
+			// If everyone is ready, and we are not already transitioning, start the timer.
+			UE_LOG(LogTemp, Log, TEXT("All players are ready. Starting 2-second timer to switch to character selection."));
+			GetWorld()->GetTimerManager().SetTimer(
+				PhaseTransitionTimerHandle, 
+				this, 
+				&ACoopGameState::StartCharacterSelectionPhase, 
+				2.0f, 
+				false
+			);
+		}
+	}
+	else
+	{
+		// If a player becomes un-ready, cancel the transition and revert to the ReadyUp phase.
+		CancelPhaseTransition();
+		if (CurrentLobbyPhase == ELobbyPhase::CharacterSelection)
+		{
+			UE_LOG(LogTemp, Log, TEXT("A player is no longer ready. Returning to ReadyUp phase."));
+			CurrentLobbyPhase = ELobbyPhase::ReadyUp;
+			OnRep_LobbyPhase();
+		}
+	}
+	
 }
 
 bool ACoopGameState::CanStartGame() const
 {
-	// Controlla se ci sono abbastanza giocatori e se ognuno ha selezionato un personaggio
-	return PlayerArray.Num() >= MaxPlayers && PlayerCharacterSelections.Num() >= MaxPlayers;
+	if (CurrentLobbyPhase != ELobbyPhase::CharacterSelection)
+	{
+		return false;
+	}
+	
+	// Check if there are enough players and if everyone has selected a character.
+	return PlayerArray.Num() >= MaxPlayers && PlayerSelections.Num() >= MaxPlayers;
+}
+
+const TArray<TObjectPtr<UCharacterDefinition>>& ACoopGameState::GetCharacters() const
+{
+	return Characters;
+}
+
+bool ACoopGameState::IsCharacterSelected(const UCharacterDefinition* CharacterToCheck) const
+{
+	return PlayerSelections.ContainsByPredicate([CharacterToCheck](const FPlayerCharacterSelection& Selection)
+	{
+		return Selection.Character == CharacterToCheck;
+	});
+}
+
+void ACoopGameState::UpdateCharacterSelection(const UCharacterDefinition* Selected, const UCharacterDefinition* Deselected, APlayerState* Player)
+{
+	if (!HasAuthority()) return;
+
+	PlayerSelections.RemoveAll([Player](const FPlayerCharacterSelection& Selection)
+		{
+			return Selection.Player == Player;
+		});
+	
+	// If a character was deselected, ensure no one else has it.
+	if (Deselected)
+	{
+		PlayerSelections.RemoveAll([Deselected](const FPlayerCharacterSelection& Selection)
+		{
+			return Selection.Character == Deselected;
+		});
+	}
+	
+	// If a new character is being selected, add it to the array.
+	if (Selected)
+	{
+		FPlayerCharacterSelection NewSelection;
+		NewSelection.Player = Player;
+		NewSelection.Character = Selected;
+		PlayerSelections.Add(NewSelection);
+	}
+
+	OnRep_PlayerSelections();
 }
 
 const UCharacterDefinition* ACoopGameState::GetCharacterSelectedByPlayer(APlayerState* Player) const
 {
-	const UCharacterDefinition* const* FoundCharacter = PlayerCharacterSelections.Find(Player);
-	return FoundCharacter ? *FoundCharacter : nullptr;
-}
-
-void ACoopGameState::RestorePlayerCharacterSelection(APlayerState* Player)
-{
-	// Trova la selezione del personaggio per questo giocatore
-	const UCharacterDefinition* SelectedCharacter = GetCharacterSelectedByPlayer(Player);
-
-	if (SelectedCharacter)
+	if (!Player)
 	{
-		// Ripristina la selezione nel PlayerState se non � gi� impostata
-		if (ACoopPlayerState* CoopPS = Cast<ACoopPlayerState>(Player))
-		{
-			if (!CoopPS->GetCurrentSelectedCharacter())
-			{
-				// Usa una funzione diretta invece di RPC per evitare problemi di autorit�
-				CoopPS->SetCurrentSelectedCharacter(SelectedCharacter);
-				UE_LOG(LogTemp, Warning, TEXT("RestorePlayerCharacterSelection: Restored character '%s' for player %s"),
-					*SelectedCharacter->CharacterName.ToString(), *Player->GetPlayerName());
-			}
-		}
+		return nullptr;
 	}
+	
+	// Finds the entry in the array corresponding to the given player.
+	const FPlayerCharacterSelection* FoundSelection = PlayerSelections.FindByPredicate([Player](const FPlayerCharacterSelection& Selection)
+	{
+		return Selection.Player == Player;
+	});
+	return FoundSelection ? FoundSelection->Character.Get() : nullptr;
 }
 
-void ACoopGameState::SetAlarm(bool Value)
+TObjectPtr<APlayerState> ACoopGameState::GetPlayerStateForSelectedCharacter(const UCharacterDefinition* Character) const
 {
-	IsAlarmActive = Value;
-	OnAlarmChanged.Broadcast(IsAlarmActive);
-	UE_LOG( LogTemp, Warning, TEXT("Alarm State changed to: %s"), IsAlarmActive ? TEXT("ACTIVE") : TEXT("INACTIVE"));
+	if (!Character)
+	{
+		return nullptr;
+	}
+	const FPlayerCharacterSelection* FoundSelection = PlayerSelections.FindByPredicate([Character](const FPlayerCharacterSelection& Selection)
+	{
+		return Selection.Character == Character;
+	});
+
+	return FoundSelection ? FoundSelection->Player.Get() : nullptr;
 }
 
-void ACoopGameState::OnRep_IsAlarmActive()
+void ACoopGameState::SetAlarm(const bool bValue)
 {
-	OnAlarmChanged.Broadcast(IsAlarmActive);
+	bIsAlarmActive = bValue;
+	OnAlarmChanged.Broadcast(bIsAlarmActive);
+	//UE_LOG( LogTemp, Warning, TEXT("Alarm State changed to: %s"), bIsAlarmActive ? TEXT("ACTIVE") : TEXT("INACTIVE"));
+}
+
+void ACoopGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	// List of all properties that need to be synchronized from server to clients.
+	DOREPLIFETIME(ACoopGameState, SessionName);
+	DOREPLIFETIME(ACoopGameState, CodePuzzleSolution);
+	DOREPLIFETIME(ACoopGameState, HackerPlayerController);
+	DOREPLIFETIME(ACoopGameState, AgentPlayerController);
+	DOREPLIFETIME(ACoopGameState, bIsAlarmActive);
+	DOREPLIFETIME(ACoopGameState, GameTimer);
+	DOREPLIFETIME(ACoopGameState, CurrentLobbyPhase);
+	DOREPLIFETIME(ACoopGameState, PlayerSelections);
 }
 
 void ACoopGameState::OnRep_SessionName()
@@ -99,18 +181,36 @@ void ACoopGameState::OnRep_SessionName()
 	OnSessionNameReplicated.Broadcast(SessionName);
 }
 
-void ACoopGameState::NetMulticast_UpdatedCharacterSelection_Implementation(const UCharacterDefinition* selected, const UCharacterDefinition* deselected)
+void ACoopGameState::OnRep_LobbyPhase()
 {
-	OnCharacterSelectionReplicated.Broadcast(selected, deselected);
+	OnLobbyPhaseChanged.Broadcast(CurrentLobbyPhase);
 }
 
-void ACoopGameState::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+void ACoopGameState::OnRep_PlayerSelections()
 {
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME_CONDITION_NOTIFY(ACoopGameState, SessionName, COND_None, REPNOTIFY_Always);
-	DOREPLIFETIME(ACoopGameState, CodePuzzleSolution);
-	DOREPLIFETIME(ACoopGameState, HackerPlayerController);
-	DOREPLIFETIME(ACoopGameState, AgentPlayerController);
-	DOREPLIFETIME(ACoopGameState, IsAlarmActive);
-	DOREPLIFETIME(ACoopGameState, GameTimer);
+	OnPlayerSelectionsChanged.Broadcast();
+}
+
+void ACoopGameState::OnRep_IsAlarmActive()
+{
+	OnAlarmChanged.Broadcast(bIsAlarmActive);
+}
+
+void ACoopGameState::StartCharacterSelectionPhase()
+{
+	if (HasAuthority())
+	{
+		UE_LOG(LogTemp, Log, TEXT("Timer expired. Switching to CharacterSelection phase."));
+		CurrentLobbyPhase = ELobbyPhase::CharacterSelection;
+		OnRep_LobbyPhase();
+	}
+}
+
+void ACoopGameState::CancelPhaseTransition()
+{
+	if (GetWorld()->GetTimerManager().IsTimerActive(PhaseTransitionTimerHandle))
+	{
+		UE_LOG(LogTemp, Log, TEXT("Phase transition cancelled."));
+		GetWorld()->GetTimerManager().ClearTimer(PhaseTransitionTimerHandle);
+	}
 }

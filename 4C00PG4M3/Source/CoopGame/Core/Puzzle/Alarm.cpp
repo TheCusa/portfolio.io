@@ -3,14 +3,17 @@
 
 #include "Alarm.h"
 
+#include "Components/RectLightComponent.h"
 #include "CoopGame/Core/CoopGameState.h"
-
+#include "Components/AudioComponent.h"
 // Sets default values
 AAlarm::AAlarm()
 {
 	PrimaryActorTick.bCanEverTick = false;
-	SpotLight = CreateDefaultSubobject<USpotLightComponent>(TEXT("SpotlightComponent"));
-	RootComponent = SpotLight; 
+	RectLight = CreateDefaultSubobject<URectLightComponent>(TEXT("RectLightComponent"));
+	RootComponent = RectLight;
+	Audio = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioComponent"));
+	Audio->SetupAttachment(RootComponent);
 }
 
 void AAlarm::BeginPlay()
@@ -19,6 +22,15 @@ void AAlarm::BeginPlay()
 	if (ACoopGameState* GameStateRef = Cast<ACoopGameState>(GetWorld()->GetGameState()))
 	{
 		GameStateRef->OnAlarmChanged.AddDynamic(this, &AAlarm::HandleAlarmChanged);
+	}
+
+	if (this->ActorHasTag("Odd"))
+	{
+		RectLight->SetLightFunctionMaterial(MaterialLightAlarmSin);
+	}
+	if (this->ActorHasTag("Even"))
+	{
+		RectLight->SetLightFunctionMaterial(MaterialLightAlarmCos);
 	}
 	
 }
@@ -33,10 +45,21 @@ void AAlarm::Tick(float DeltaTime)
 
 void AAlarm::HandleAlarmChanged(bool bNewState)
 {
-	if (HasAuthority())
+	if (RectLight)
 	{
-		GEngine-> AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Alarm state changed: %s"), bNewState ? TEXT("ON") : TEXT("OFF")));
-		SpotLight->SetVisibility(bNewState);
+		//GEngine-> AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Alarm state changed: %s"), bNewState ? TEXT("ON") : TEXT("OFF")));
+		RectLight->SetVisibility(bNewState);
 	}
+	if (bNewState && !Audio->IsPlaying())
+	{
+		Audio->Play();
+	}
+	else if (!bNewState && Audio->IsPlaying())
+	{
+		Audio->Stop();
+	}
+	
+		
+		
 }
 

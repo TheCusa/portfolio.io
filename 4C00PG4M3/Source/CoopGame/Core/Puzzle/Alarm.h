@@ -3,9 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/SpotLightComponent.h"
 #include "GameFramework/Actor.h"
 #include "Alarm.generated.h"
+
+class URectLightComponent;
+
+class UAudioComponent;
 
 UCLASS()
 class COOPGAME_API AAlarm : public AActor
@@ -24,11 +27,17 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	USpotLightComponent* SpotLight;
+	URectLightComponent* RectLight;
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	UAudioComponent* Audio;
 
 private:
 	UFUNCTION()
 	void HandleAlarmChanged(bool bNewState);
-	
 
+	UPROPERTY(EditDefaultsOnly)
+	UMaterialInterface* MaterialLightAlarmCos; 
+
+	UPROPERTY(EditDefaultsOnly)
+	UMaterialInterface* MaterialLightAlarmSin;
 };

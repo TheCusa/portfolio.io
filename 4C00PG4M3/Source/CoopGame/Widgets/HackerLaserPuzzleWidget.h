@@ -12,7 +12,9 @@ class UTextBlock;
 class UButton;
 class ASecurityCamera;
 class UMaterialInstanceDynamic;
-
+class ACameraManager;
+class ALevelStreamingManager;
+class AHackerPlayerController;
 /**
  * 
  */
@@ -20,7 +22,10 @@ UCLASS()
 class COOPGAME_API UHackerLaserPuzzleWidget : public UGameWidgetParentClass
 {
 	GENERATED_BODY()
-		
+public:
+	UFUNCTION(BlueprintCallable)
+	void InitializeCameras();
+private:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
 	
@@ -43,6 +48,10 @@ class COOPGAME_API UHackerLaserPuzzleWidget : public UGameWidgetParentClass
 	TArray<TObjectPtr<ASecurityCamera>> SecurityCameras;
 
 	int32 CameraFeedIndex;
+	UPROPERTY()
+	ACameraManager* CameraManager;
+	UPROPERTY()
+	AHackerPlayerController* HackerPlayerController;
 
 	UFUNCTION(BlueprintCallable, Category="Security Feeds")
 	void SetFeed();

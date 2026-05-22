@@ -3,7 +3,9 @@
 
 #include "SecurityCamera.h"
 #include "Components/SceneCaptureComponent2D.h"
+#include "CoopGame/Core/RenderTargetPoolManager.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "Kismet/GameplayStatics.h"
 
 // Sets default values
 ASecurityCamera::ASecurityCamera()
@@ -25,17 +27,21 @@ ASecurityCamera::ASecurityCamera()
 void ASecurityCamera::BeginPlay()
 {
 	Super::BeginPlay();
-	if (CameraCaptureComponent && !CameraCaptureComponent->TextureTarget)
+	
+	if (CameraCaptureComponent && IsValid(RenderTargetPoolManager))
 	{
-		UTextureRenderTarget2D* NewRenderTarget = NewObject<UTextureRenderTarget2D>(this);
-		if (NewRenderTarget)
+		UTextureRenderTarget2D* AssignedTarget = Cast<ARenderTargetPoolManager>(UGameplayStatics::GetActorOfClass(this, ARenderTargetPoolManager::StaticClass()))->GetRenderTarget(SortingOrder); //RenderTargetPoolManager->GetDefaultObject<ARenderTargetPoolManager>()->GetRenderTarget(SortingOrder);
+		if (AssignedTarget)
 		{
-			NewRenderTarget->InitAutoFormat(1280, 720);
-			NewRenderTarget->UpdateResource();
-			CameraCaptureComponent->TextureTarget = NewRenderTarget;
-			UE_LOG(LogTemp, Warning, TEXT("Created dynamic Render Target for %s"), *GetName());
+			CameraCaptureComponent->TextureTarget = AssignedTarget;
+			UE_LOG(LogTemp, Warning, TEXT("Assigned preallocated RenderTarget to %s"), *GetName());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("No RenderTarget available for %s"), *GetName());
 		}
 	}
+	SetActive(false);
 }
 
 void ASecurityCamera::SetActive(bool bIsActive)

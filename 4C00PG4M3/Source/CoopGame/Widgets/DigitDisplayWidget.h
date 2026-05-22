@@ -2,12 +2,9 @@
 
 #pragma once
 
-#include "Blueprint/WidgetTree.h"
 #include "CoreMinimal.h"
 #include "GameWidgetParentClass.h"
 #include "Components/Border.h"
-#include "Components/HorizontalBoxSlot.h"
-#include "Components/CanvasPanel.h"
 #include "Components/HorizontalBox.h"
 #include "Components/TextBlock.h"
 #include "DigitDisplayWidget.generated.h"
@@ -15,6 +12,8 @@
 /**
  * 
  */
+
+class UFont;
 
 UCLASS()
 class COOPGAME_API UDigitDisplayWidget : public UGameWidgetParentClass
@@ -42,4 +41,9 @@ protected:
 
 	FString LastGuess;
 	FString PreviousGuess;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Font Setup")
+	TObjectPtr<UFont> Font;
+	UPROPERTY(EditDefaultsOnly, Category = "Font Setup")
+	int32 FontSize = 72;
 };

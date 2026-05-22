@@ -2,11 +2,13 @@
 
 
 #include "Piano.h"
+
+#include "CoopGame/Core/GameModes/GameplayGameMode.h"
 #include "CoopGame/Core/Puzzle/SoundPlatform.h"
 #include "CoopGame/Core/Puzzle/Utils.h"
+#include "CoopGame/FirstPuzzle/MovingDoor.h"
 #include "CoopGame/SoundPuzzle/MelodiesDataTable.h"
-
-#include"Net/UnrealNetwork.h"
+#include "Net/UnrealNetwork.h"
 
 // Sets default values
 APiano::APiano()
@@ -26,15 +28,10 @@ void APiano::BeginPlay()
 		NoteArray.Init(Notes::None, PuzzleSolution.Num());
 		TArray<int8> Temp = Utils::ConvertArrayToInt8(PuzzleSolution);
 		UE_LOG(LogTemp, Warning, TEXT("Size PuzzleSolution: %d"), PuzzleSolution.Num());
-
+		GameModeRef = Cast<AGameplayGameMode>(GetWorld()->GetAuthGameMode());
 		//Utils::DebugShowCode(Temp, "Piano Solution: ");
 	}
-		
-	
-	
-
 }
-
 
 void APiano::AddNote(Notes NoteID)
 {
@@ -56,10 +53,18 @@ void APiano::AddNote(Notes NoteID)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("Correct combination")) //Debug Purpose
 			bIsPuzzleSolved = true;
+			
+			if (MovingDoor)
+			{
+				MovingDoor->OpenDoor();
+			}
+			if (GameModeRef)
+			{
+				GetWorld()->GetTimerManager().ClearTimer(GameModeRef->CountdownTimerHandle);
+			}
 			GetWorld()->GetTimerManager().ClearTimer(TimerHandler); //Deleting timer to avoid array erasing
 		}
 }
-
 
 TArray<int8> APiano::GetPuzzleSolution()
 {
@@ -73,11 +78,13 @@ void APiano::OnTimerFinished()
 	NoteArray.Init(Notes::None, PuzzleSolution.Num());
 	UE_LOG(LogTemp, Warning, TEXT("Clear Array")) //Debug purpose
 }
+
 void APiano::ResetStartTimer()
 {
 	GetWorld()->GetTimerManager().ClearTimer(TimerHandler);
 	GetWorld()->GetTimerManager().SetTimer(TimerHandler, this, &APiano::OnTimerFinished, Timer, false);
 }
+
 TArray<Notes> APiano::PickRandomMelody()
 {
 	static const FString Context(TEXT("Melody Context"));
@@ -94,10 +101,10 @@ TArray<Notes> APiano::PickRandomMelody()
 	UE_LOG(LogTemp, Warning, TEXT("RandomIndex Picked: %d"), RandomIndex) //Debug Purpose
 
 	FMelodyRow* RandomRow = AllRows[RandomIndex];
-
-
+	
 	return RandomRow->Notes;
 }
+
 void APiano::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

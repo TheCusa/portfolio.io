@@ -7,7 +7,7 @@
 #include "HackerPlayerController.generated.h"
 
 class AHackerMonitor;
-
+class ALevelStreamingManager;
 /**
  * 
  */
@@ -25,5 +25,8 @@ protected:
 public:
 	UFUNCTION(Client, Reliable)
 	void ReceiveArrayCode(const TArray<int8>& Array, const GameUserWidget Widget);
-
+	UFUNCTION(Server, Reliable)
+	void Server_UpdateFeed();
+	UPROPERTY()
+	ALevelStreamingManager* StreamingManager;
 };

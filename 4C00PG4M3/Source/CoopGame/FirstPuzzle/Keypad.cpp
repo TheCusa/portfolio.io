@@ -1,34 +1,23 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "Keypad.h"
-#include "Components/BoxComponent.h"
+#include "CoopGame/FirstPuzzle/Keypad.h"
+#include "Net/UnrealNetwork.h"
 #include <Kismet/GameplayStatics.h>
 #include "Components/WidgetComponent.h"
+#include "CoopGame/Core/GameModes/GameplayGameMode.h"
 #include "CoopGame/Core/PlayerControllers/AgentPlayerController.h"
-#include "CoopGame/Characters/Agent/AgentCharacter.h"
+#include "CoopGame/Characters/CharacterParentClass.h"
 #include "CoopGame/Widgets/KeypadWidget.h"
 #include "CoopGame/Core/Puzzle/Utils.h"
-
 
 
 // Sets default values
 AKeypad::AKeypad()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 
-	// Create the box collision component
-	KeypadInteractionCollider = CreateDefaultSubobject<UBoxComponent>(TEXT("ColliderComponent"));
-	KeypadInteractionCollider->InitBoxExtent(FVector(30.0f, 30.0f, 30.0f));
-
-	// Set collision as query only for overlaps events only with pawn
-	KeypadInteractionCollider->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	KeypadInteractionCollider->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
-	KeypadInteractionCollider->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	KeypadInteractionCollider->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
-
-	// Set box collision component as root component
-	RootComponent = KeypadInteractionCollider;
+	bReplicates = true;
 
 	// Create the mesh component and attach it to root component
 	KeypadMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
@@ -41,16 +30,14 @@ AKeypad::AKeypad()
 	// Configure widget settings
 	KeypadWidgetComponent->SetWidgetSpace(EWidgetSpace::World);
 	KeypadWidgetComponent->SetVisibility(false);
+
+	AgentPC = nullptr;
 }
 
 // Called when the game starts or when spawned
 void AKeypad::BeginPlay()
 {
 	Super::BeginPlay();
-
-	// Delegate the overlap functions
-	KeypadInteractionCollider->OnComponentBeginOverlap.AddDynamic(this, &AKeypad::OnInteractionBoxOverlapBegin);
-	KeypadInteractionCollider->OnComponentEndOverlap.AddDynamic(this, &AKeypad::OnInteractionBoxOverlapEnd);
 
 	// "Subscribe" to a delegate event on KeypadWideg 
 	// when the event occour, execute HandleWidgetCodeSent function
@@ -65,34 +52,42 @@ void AKeypad::BeginPlay()
 		}
 	}
 
-	GenerateNewCode();
-	
-}
+	// Set Agent Player Controller
+	ACoopGameState* GameStateRef = Cast<ACoopGameState>(GetWorld()->GetGameState());
+	AgentPC = GameStateRef->AgentPlayerController;
 
-// Called every frame
-void AKeypad::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
+	if (HasAuthority())
+	{
+		GenerateNewCode();
+	}
 }
 
 // Do something when player interact with this object
 void AKeypad::ExecuteAction()
 {
-	if (!(KeypadWidgetComponent->IsVisible()))
+	if (!IsActive && AgentPC)
 	{
 		AgentPC->ServerRequestSaveCodeIntoGameState(this);
-		ShowUIChangeInputMode();
+		LoadInputMode();
 	}
 	else
 	{
-		HideUIChangeInputMode();
+		RestoreInputMode();
 	}
 }
 
 void AKeypad::HandleWidgetCodeSent(const TArray<int8>& SentCode)
 {
+	if (Utils::CheckEquals(SentCode, Code))
+	{
+		RestoreInputMode();
+	}
 	AgentPC->SendArrayCode(SentCode, GameUserWidget::DigitDisplay);
 	AgentPC->ServerRequestCheckCode(this, SentCode);
+	UE_LOG(LogTemp, Warning, TEXT("CODE SENT"));
+
+	// Hide UI and create a new code on server
+
 }
 
 void AKeypad::Server_CheckCode_Implementation(const TArray<int8>& Array)
@@ -100,133 +95,100 @@ void AKeypad::Server_CheckCode_Implementation(const TArray<int8>& Array)
 	if (Utils::CheckEquals(Array, Code))
 	{
 		OpenDoor();
-		GenerateNewCode();
-		if (IsValid(TargetDoor) && TargetDoor->DoorType == EDoorType::Gate)
+		
+		if (HasAuthority())
 		{
-			Cast<ACoopGameState>(GetWorld()->GetGameState())->SetAlarm(false);
+			GenerateNewCode();
+		}
+
+		for (AMovingDoor* const& TargetDoor : TargetDoors)
+		{
+			if (IsValid(TargetDoor))
+			{
+				Cast<ACoopGameState>(GetWorld()->GetGameState())->SetAlarm(false);
+			}
 		}
 	}
 }
 
 void AKeypad::Server_SaveCodeIntoGameState_Implementation()
 {
-	if (HasAuthority())		// only on server
+	ACoopGameState* GameStateRef = Cast<ACoopGameState>(GetWorld()->GetGameState());
+	if (GameStateRef)
 	{
-		ACoopGameState* GameStateRef = Cast<ACoopGameState>(GetWorld()->GetGameState());
-		if (GameStateRef)
-		{
-			GameStateRef->CodePuzzleSolution = Code;
-			Utils::DebugShowCode(GameStateRef->CodePuzzleSolution, "CodePuzzleSolution: ");
-		}
+		GameStateRef->CodePuzzleSolution = Code;
+		Utils::DebugShowCode(GameStateRef->CodePuzzleSolution, "CodePuzzleSolution: ");
 	}
 }
 
-void AKeypad::ShowUIChangeInputMode()
+void AKeypad::LoadInputMode()
 {
-	KeypadWidgetComponent->SetVisibility(true);
-
+	IsActive = true;
+	
 	FInputModeGameAndUI InputMode;
 
 	if (AgentPC)
 	{
-		AAgentCharacter* AgentRef = Cast<AAgentCharacter>(AgentPC->GetPawn());
-		AgentRef->LockCharacterMovement();
+		ACharacterParentClass* CharRef = Cast<ACharacterParentClass>(AgentPC->GetPawn());
+		CharRef->LockCharacterMovement();
 		AgentPC->SetInputMode(InputMode);
+		AgentPC->SetViewTargetWithBlend(this, 0.5f);
+		CharRef->GetMesh()->SetVisibility(false);
 		AgentPC->SetShowMouseCursor(true);
 	}
 }
 
-void AKeypad::HideUIChangeInputMode()
+void AKeypad::RestoreInputMode()
 {
-	KeypadWidgetComponent->SetVisibility(false);
+	//KeypadWidgetComponent->SetVisibility(false);
+	IsActive = false;
 
 	FInputModeGameOnly InputMode;
 
 	if (AgentPC)
 	{
-		AAgentCharacter* AgentRef = Cast<AAgentCharacter>(AgentPC->GetPawn());
-		AgentRef->UnlockCharacterMovement();
+		ACharacterParentClass* CharRef = Cast<ACharacterParentClass>(AgentPC->GetPawn());
+		CharRef->UnlockCharacterMovement();
 		AgentPC->SetInputMode(InputMode);
+		AgentPC->SetViewTargetWithBlend(CharRef, 0.5f);
+		CharRef->GetMesh()->SetVisibility(true);
 		AgentPC->SetShowMouseCursor(false);
 	}
 }
 
 void AKeypad::GenerateNewCode()
 {
-	if (HasAuthority())
-	{
-		Code.Empty();
-		Code = Utils::GenerateCode(4);
-		UE_LOG(LogTemp, Warning, TEXT("CODE GENERATED"));
-	}
+	Code.Empty();
+	Code = Utils::GenerateCode(4);
+	//Utils::DebugShowCode(Code, "CodeGenerated: ");
 }
 
 void AKeypad::OpenDoor()
 {
 	if (!HasAuthority())
-	{
 		return;
-	}
+	
+	if (TargetDoors.Num() <= 0)
+		return;
 
-	if (TargetDoor)
+	for (AMovingDoor* const& TargetDoor : TargetDoors)
 	{
-		if (!TargetDoor->IsOpen())
+		if (TargetDoor)
 		{
-			TargetDoor->OpenDoor();
+			if (!TargetDoor->IsOpen())
+			{
+				TargetDoor->OpenDoor();
+			}
 		}
 		else
 		{
-			TargetDoor->CloseDoor();
+			UE_LOG(LogTemp, Warning, TEXT("TargetDoor not assigned!"));
 		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("TargetDoor not assigned!"));
 	}
 }
 
-
-// ------ OVERLAPS FUNCTIONS -------
-void AKeypad::OnInteractionBoxOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AKeypad::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
-	if (!OtherActor || (OtherActor == this))
-	{
-		return;
-	}
-
-	AAgentCharacter* OverlapCharacter = Cast<AAgentCharacter>(OtherActor);
-	if (OverlapCharacter)
-	{
-		// Check if OverlapChracter is the local player. It's needed to execute this event only in local
-		if (!OverlapCharacter->IsLocallyControlled())
-		{
-			return;
-		}
-		OverlapCharacter->SetNearbyInteractableObject(this);
-		AgentPC = Cast<AAgentPlayerController>(OverlapCharacter->GetController());
-	}
-}
-
-void AKeypad::OnInteractionBoxOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-	int32 OtherBodyIndex)
-{
-	if (!OtherActor || (OtherActor == this))
-	{
-		return;
-	}
-
-	AAgentCharacter* OverlapCharacter = Cast<AAgentCharacter>(OtherActor);
-	if (OverlapCharacter)
-	{
-		// Check if OverlapChracter is the local player. It's needed to execute this event only in local
-		if (!OverlapCharacter->IsLocallyControlled())
-		{
-			return;
-		}
-
-		//UE_LOG(LogTemp, Warning, TEXT("END OVERLAP"));
-		OverlapCharacter->ClearNearbyInteractableObject(this);
-		AgentPC = nullptr;
-	}
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AKeypad, Code);
 }

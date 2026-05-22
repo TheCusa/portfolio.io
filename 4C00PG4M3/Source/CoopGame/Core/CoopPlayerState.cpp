@@ -3,38 +3,78 @@
 #include "CoopPlayerState.h"
 #include "CoopGame/Core/CoopGameState.h"
 #include "CoopGame/Characters/CharacterDefinition.h"
+#include "GameFramework/Character.h"
 #include "Net/UnrealNetwork.h"
 
 void ACoopPlayerState::Server_IssueCharacterPicked_Implementation(const UCharacterDefinition* SelectedCharacter)
 {
+
+	UE_LOG(LogTemp, Warning, TEXT("ACoopPlayerState::Server_IssueCharacterPicked - Received request from player: %s"), *GetPlayerName());
+	
+	if (SelectedCharacter)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ACoopPlayerState::Server_IssueCharacterPicked - Character to select/deselect: %s"), *SelectedCharacter->CharacterName.ToString());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ACoopPlayerState::Server_IssueCharacterPicked - Character to deselect (nullptr)."));
+	}
+
 	ACoopGameState* CoopGameState = GetWorld()->GetGameState<ACoopGameState>();
-	if (!CoopGameState || !SelectedCharacter)
+	if (!CoopGameState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("ACoopPlayerState::Server_IssueCharacterPicked - GameState is NOT valid on the server!"));
+		return;
+	}
+	
+	// Allow character selection during the correct phase
+	if (CoopGameState->GetCurrentLobbyPhase() != ELobbyPhase::CharacterSelection)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Attempted to pick character outside of CharacterSelection phase."));
+		return;
+	}
+	
+	if (!bIsReady)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Player tried to pick a character while not ready."));
+		return;
+	}
+	
+	if (!CoopGameState || (!SelectedCharacter && !CurrentSelectedCharacter))
 	{
 		return;
 	}
 
-	// Se stiamo selezionando lo stesso personaggio che abbiamo già, deselezionalo
-	if (CurrentSelectedCharacter == SelectedCharacter)
+	if (SelectedCharacter)
 	{
-		// Deseleziona il personaggio corrente
+		// If we are selecting the same character we already have, deselect it
+		if (CurrentSelectedCharacter == SelectedCharacter)
+		{
+			const UCharacterDefinition* PreviousCharacter = CurrentSelectedCharacter;
+			CurrentSelectedCharacter = nullptr;
+			CoopGameState->UpdateCharacterSelection(nullptr, PreviousCharacter, this);
+		}
+		else
+		{
+			// Check if the character is already selected by another player
+			if (CoopGameState->IsCharacterSelected(SelectedCharacter))
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Character already selected by another player"));
+				return;
+			}
+
+			// Select the new character
+			const UCharacterDefinition* PreviousCharacter = CurrentSelectedCharacter;
+			CurrentSelectedCharacter = SelectedCharacter;
+			CoopGameState->UpdateCharacterSelection(SelectedCharacter, PreviousCharacter, this);
+		}
+	}
+	// If we are deselecting by passing nullptr
+	else if (CurrentSelectedCharacter)
+	{
 		const UCharacterDefinition* PreviousCharacter = CurrentSelectedCharacter;
 		CurrentSelectedCharacter = nullptr;
 		CoopGameState->UpdateCharacterSelection(nullptr, PreviousCharacter, this);
-	}
-	else
-	{
-		// Controlla se il personaggio è già stato selezionato da un altro giocatore
-		if (CoopGameState->IsCharacterSelected(SelectedCharacter))
-		{
-			// Il personaggio è già selezionato da qualcun altro, non fare nulla
-			UE_LOG(LogTemp, Warning, TEXT("Character already selected by another player"));
-			return;
-		}
-
-		// Seleziona il nuovo personaggio
-		const UCharacterDefinition* PreviousCharacter = CurrentSelectedCharacter;
-		CurrentSelectedCharacter = SelectedCharacter;
-		CoopGameState->UpdateCharacterSelection(SelectedCharacter, PreviousCharacter, this);
 	}
 }
 
@@ -52,36 +92,48 @@ void ACoopPlayerState::SetCurrentSelectedCharacter(const UCharacterDefinition* C
 	CurrentSelectedCharacter = Character;
 }
 
-void ACoopPlayerState::Server_DeselectCurrentCharacter_Implementation()
+void ACoopPlayerState::Server_SetIsReady_Implementation(bool bNewReadyState)
 {
-	if (!CurrentSelectedCharacter)
+	if (bIsReady == bNewReadyState) return;
+
+	bIsReady = bNewReadyState;
+	OnRep_IsReady();
+
+	// If the player becomes "Not Ready", deselect their character
+	if (!bIsReady && CurrentSelectedCharacter)
 	{
-		return;
+		Server_IssueCharacterPicked_Implementation(nullptr);
 	}
 
-	ACoopGameState* CoopGameState = GetWorld()->GetGameState<ACoopGameState>();
-	if (CoopGameState)
+	// Tell the GameState to check if the phase should change
+	if (ACoopGameState* CoopGameState = GetWorld()->GetGameState<ACoopGameState>())
 	{
-		const UCharacterDefinition* CharacterToDeselect = CurrentSelectedCharacter;
-		CurrentSelectedCharacter = nullptr;
-		CoopGameState->UpdateCharacterSelection(nullptr, CharacterToDeselect, this);
+		CoopGameState->CheckAndAdvanceLobbyPhase();
 	}
+}
+
+void ACoopPlayerState::OnRep_IsReady()
+{
+	// Broadcast the delegate so the UI can update
+	OnPlayerReadyStateChanged.Broadcast(bIsReady);
 }
 
 void ACoopPlayerState::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ACoopPlayerState, CurrentSelectedCharacter);
+	DOREPLIFETIME(ACoopPlayerState, bIsReady);
 }
 
 void ACoopPlayerState::CopyProperties(APlayerState* PlayerState)
 {
 	Super::CopyProperties(PlayerState);
 
-	// Copia il personaggio selezionato durante il seamless travel
 	if (ACoopPlayerState* CoopPS = Cast<ACoopPlayerState>(PlayerState))
 	{
 		CoopPS->CurrentSelectedCharacter = CurrentSelectedCharacter;
+		// Also copy the ready state, although it's likely players will need to ready up again in a new lobby
+		CoopPS->bIsReady = false;
 
 		UE_LOG(LogTemp, Warning, TEXT("CopyProperties: Copied character selection '%s' to new PlayerState"),
 			CurrentSelectedCharacter ? *CurrentSelectedCharacter->CharacterName.ToString() : TEXT("None"));

@@ -4,69 +4,127 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "Interfaces/OnlineSessionInterface.h"
+#include "OnlineSessionSettings.h"
 #include "EOSGameInstance.generated.h"
+
+class UInvitePopup;
+class IOnlineLobby;
+class FOnlineLobbyId;
 
 namespace EOnJoinSessionCompleteResult
 {
-	enum Type : int;
+    enum Type;
 }
 
+// --- Delegates ---
 DECLARE_MULTICAST_DELEGATE(FOnLoginSuccess);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnSessionSearchCompleted, const TArray<FOnlineSessionSearchResult>&/*SearchResults*/);
-/**
- * 
- */
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnLoginFailed, const FString& /*Error*/);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnCustomSessionInviteReceived, const FUniqueNetId& /*FromId*/, const FOnlineSessionSearchResult& /*InviteResult*/);
+
 UCLASS()
 class COOPGAME_API UEOSGameInstance : public UGameInstance
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	void JoinLobbyBySearchResultIndex(int index);
-	FOnLoginSuccess OnLoginSuccess;
-	FOnSessionSearchCompleted SearchCompleted;
+    // --- Delegates ---
+    FOnLoginSuccess OnLoginSuccess;
+    FOnLoginFailed OnLoginFailed;
+    FOnCustomSessionInviteReceived OnSessionInviteReceived;
 
-	UFUNCTION(BlueprintCallable, Category = "EOS")
-	void Login();
+    // --- Main Functions ---
+    UFUNCTION(BlueprintCallable, Category = "EOS")
+    void Login();
 
-	UFUNCTION(BlueprintCallable, Category = "EOS")
-	void CreateSession(const FName& SessionName);
+    UFUNCTION(BlueprintCallable, Category = "EOS")
+    void CreateSession(bool bIsPublic = false);
 
-	UFUNCTION(BlueprintCallable, Category = "EOS")
-	FString GetNickname();
-	
-	UFUNCTION(BlueprintCallable, Category = "EOS")
-	void FindSession();
+    UFUNCTION(BlueprintCallable, Category = "EOS")
+    FString GetNickname();
 
-	FORCEINLINE FName GetSessionName() const { return SessionNameKey; }
-	FString GetSessionName(const FOnlineSessionSearchResult& searchResult) const;
-	FORCEINLINE FName GetCurrentLobbyName() const { return CurrentLobbyName; };
-	void LoadGameLevel();
+    void LoadGameLevel();
 
+    // --- UI & Invites ---
+    UFUNCTION(BlueprintCallable, Category = "EOS|UI")
+    void ShowFriendsUI();
+
+    UFUNCTION(BlueprintCallable, Category = "EOS|Invites")
+    void AcceptLastReceivedInvite();
+
+    // --- State Functions ---
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "EOS|Session")
+    bool IsInSession() const;
+
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "EOS|Session")
+    bool IsSessionHost() const;
+
+    UFUNCTION(BlueprintCallable, Category = "EOS|Session")
+    void LeaveSession();
+
+    /** Leaves the current session and travels back to the main menu level. */
+    UFUNCTION(BlueprintCallable, Category = "EOS|Session")
+    void ReturnToMainMenu();
+
+    /** Checks if the user is currently logged into the online subsystem. */
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "EOS|Login")
+    bool IsLoggedIn() const;
+    
+    FString GetSessionNameFromSearchResult(const FOnlineSessionSearchResult& SearchResult) const;
+    FORCEINLINE FName GetCurrentSessionName() const { return CurrentSessionName; };
+    FORCEINLINE IOnlineSessionPtr GetSessionInterface() const { return SessionPtr; }
+    
 protected:
-	virtual void Init() override;
+    virtual void Init() override;
+    virtual void Shutdown() override;
 
 private:
-	TSharedPtr<const FUniqueNetId> LoggedInUserId;
-	class IOnlineSubsystem* onlineSubsystem;
-	TSharedPtr<class IOnlineIdentity, ESPMode::ThreadSafe> identityPtr;
-	TSharedPtr<class IOnlineSession, ESPMode::ThreadSafe> sessionPtr;
-	void LoginCompleted(int numOfPlayers, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
-	void CreateSessionCompleted(FName name, bool bWasSuccessful);
-	void FindSessionCompleted(bool bWasSuccessful);
-	void JoinSessionCompleted(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
+    // --- Online Subsystem Pointers ---
+    TSharedPtr<const FUniqueNetId> LoggedInUserId;
+    IOnlineSubsystem* OnlineSubsystem;
+    TSharedPtr<IOnlineIdentity, ESPMode::ThreadSafe> IdentityPtr;
+    TSharedPtr<IOnlineSession, ESPMode::ThreadSafe> SessionPtr;
+    TSharedPtr<IOnlineExternalUI, ESPMode::ThreadSafe> ExternalUIPtr;
+    
+    // --- Invite Management ---
+    TSharedPtr<FOnlineSessionSearchResult> LastInviteResult;
 
-	UPROPERTY(EditDefaultsOnly)
-	TSoftObjectPtr<UWorld> GameLevel;
+    // --- Game Levels ---
+    
+    UPROPERTY(EditDefaultsOnly, Category = "Levels")
+    TSoftObjectPtr<UWorld> LoginLevel;
 
-	UPROPERTY(EditDefaultsOnly)
-	TSoftObjectPtr<UWorld> LobbyLevel;
+    UPROPERTY(EditDefaultsOnly, Category = "Levels")
+    TSoftObjectPtr<UWorld> LobbyLevel;
+    
+    UPROPERTY(EditDefaultsOnly, Category = "Levels")
+    TSoftObjectPtr<UWorld> GameLevel;
 
-	TSharedPtr<class FOnlineSessionSearch> sessionSearch;
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<UInvitePopup> InvitePopupClass;
 
-	const FName SessionNameKey{ "SessionNameKey" };
+    // --- Session State ---
+    const FName SESSION_SETTINGS_KEY_NAME{ "SessionName" };
+    FName CurrentSessionName;
+    bool bIsInSession = false;
+    bool bIsHost = false;
 
-	void LoadLevelAndListen(TSoftObjectPtr<UWorld> LevelToLoad);
-
-	FName CurrentLobbyName;
+    // --- Delegate Handles ---
+    FDelegateHandle OnSessionInviteReceivedHandle;
+    FDelegateHandle OnSessionUserInviteAcceptedHandle;
+    
+    
+    // --- Online Subsystem Callbacks ---
+    void OnLoginCompleted(int ControllerId, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
+    void OnCreateSessionCompleted(FName SessionName, bool bWasSuccessful);
+    void OnJoinSessionCompleted(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
+    void OnDestroySessionCompleted(FName SessionName, bool bWasSuccessful);
+    void OnSessionInviteReceivedCallback(const FUniqueNetId& UserId, const FUniqueNetId& FromId, const FString& AppId, const FOnlineSessionSearchResult& InviteResult);
+    void OnSessionUserInviteAccepted(bool bWasSuccessful, int32 ControllerId, TSharedPtr<const FUniqueNetId> UserId, const FOnlineSessionSearchResult& InviteResult);
+    void OnUpdateSessionCompleted(FName SessionName, bool bWasSuccessful);
+    
+    // --- Private Helper Functions ---
+    void AcceptSessionInvite(int32 LocalUserNum, const FOnlineSessionSearchResult& InviteResult);
+    void TravelToLevel(TSoftObjectPtr<UWorld> Level, bool bAsListenServer);
+    FString GenerateRandomSessionName(int32 Length = 16) const;
 };

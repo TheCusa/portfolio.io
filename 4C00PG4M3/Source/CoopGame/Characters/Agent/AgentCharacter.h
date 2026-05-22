@@ -6,6 +6,7 @@
 #include "CoopGame/Characters/CharacterParentClass.h"
 #include "AgentCharacter.generated.h"
 
+class UBoxComponent;
 UCLASS()
 class AAgentCharacter : public ACharacterParentClass
 {
@@ -20,5 +21,9 @@ protected:
 	
 	// To add mapping context
 	virtual void BeginPlay();
+private:
+	UPROPERTY(EditDefaultsOnly)
+	UBoxComponent* BoxComponent;
+	
 
 };

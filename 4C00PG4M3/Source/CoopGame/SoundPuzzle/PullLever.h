@@ -2,7 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Components/TimelineComponent.h"
-#include "CoopGame/FirstPuzzle/InteractableObjectInterface.h"
+#include "CoopGame/FirstPuzzle/InteractableActor.h"
 #include "PullLever.generated.h"
 
 class UStaticMeshComponent;
@@ -13,7 +13,7 @@ class AAgentPlayerController;
 class UCurveFloat;
 
 UCLASS()
-class COOPGAME_API APullLever : public AActor, public IInteractableObjectInterface
+class COOPGAME_API APullLever : public AInteractableActor
 {
 	GENERATED_BODY()
 
@@ -32,16 +32,6 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	// Overlap begin function for interaction box collider
-	UFUNCTION()
-	void OnInteractionBoxOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-		int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
-	// Overlap end function for interaction box collider
-	UFUNCTION()
-	void OnInteractionBoxOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-		int32 OtherBodyIndex);
-
 	// Timeline callback functions
 	UFUNCTION()
 	void TimelineUpdate(float Alpha) const;
@@ -56,9 +46,6 @@ private:
 
 	UPROPERTY(EditDefaultsOnly)
 	TObjectPtr<UStaticMeshComponent> MovableLeverMesh;
-
-	UPROPERTY(EditDefaultsOnly)
-	TObjectPtr<UBoxComponent> InteractionCollider;
 
 	// Timeline Components
 	UPROPERTY(EditDefaultsOnly)
@@ -92,4 +79,7 @@ private:
 
 	UPROPERTY()
 	TEnumAsByte<ETimelineDirection::Type> TimelineDirection;
+	
+	UPROPERTY(EditDefaultsOnly,Category = "Sounds")
+	USoundBase* LeverSound;
 };

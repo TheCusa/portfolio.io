@@ -9,6 +9,7 @@
 #include "CoopGame/Core/PlayerControllers/AgentPlayerController.h"
 #include "CoopGame/Core/PlayerControllers/CoopPlayerController.h"
 #include "CoopGame/Core/PlayerControllers/HackerPlayerController.h"
+#include "Kismet/GameplayStatics.h"
 
 AGameplayGameMode::AGameplayGameMode()
 {
@@ -281,7 +282,23 @@ void AGameplayGameMode::TickCountdown()
 		if (GameStateRef->GameTimer <= 0)
 		{
 			GetWorldTimerManager().ClearTimer(CountdownTimerHandle);
+			OnTimerExpired();
+#if !UE_BUILD_SHIPPING
 			GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, TEXT("Finish Countdown Timer"));
+#endif
 		}
 	}
+}
+
+void AGameplayGameMode::OnTimerExpired()
+{
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		if (ACoopPlayerController* PC = Cast<ACoopPlayerController>(*It))
+		{
+			PC->Client_GameOver();
+		}
+	}
+	
+	UGameplayStatics::SetGamePaused(GetWorld(), true);
 }

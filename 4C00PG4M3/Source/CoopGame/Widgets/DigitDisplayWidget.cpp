@@ -3,10 +3,10 @@
 
 #include "CoopGame/Widgets/DigitDisplayWidget.h"
 
-#include "InputBehavior.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
-#include "CoopGame/Core/PlayerControllers/HackerPlayerController.h"
+#include "Components/HorizontalBoxSlot.h"
+#include "Engine/Font.h"
 
 void UDigitDisplayWidget::NativeConstruct()
 {
@@ -82,7 +82,16 @@ void UDigitDisplayWidget::CreateDigits(int Size)
 		TextBox->SetText(FText::FromString("0"));
 		TextBox->SetColorAndOpacity(FSlateColor(FLinearColor::White));
 		TextBox->SetJustification(ETextJustify::Center);
-		TextBox->SetFont(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 72) );
+		// ReSharper disable once CppDeprecatedEntity
+		
+		if (Font)
+		{
+			TextBox->SetFont(FSlateFontInfo(Font, FontSize));
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Failed to find engine font asset: %s"), *Font->GetName());
+		}
 		
 		Border->SetBrushColor(FLinearColor::Black);
 		Border->SetHorizontalAlignment(HAlign_Center);

@@ -4,6 +4,8 @@
 #include "CoopGame/Core/Puzzle/HackerMonitor.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/WidgetComponent.h"
+#include "CoopGame/Characters/Hacker/HackerCharacter.h"
+#include "CoopGame/Core/PlayerControllers/HackerPlayerController.h"
 #include "CoopGame/SoundPuzzle/AudioSequenceComponent.h"
 
 
@@ -14,11 +16,11 @@ AHackerMonitor::AHackerMonitor()
 	PrimaryActorTick.bCanEverTick = false;
     // Create and setup Static Mesh Component
     MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
-    RootComponent = MeshComponent;
-
+    //RootComponent = MeshComponent;
+	MeshComponent->SetupAttachment(RootComponent);
     // Create and setup Widget Component
     WidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("WidgetComponent"));
-    WidgetComponent->SetupAttachment(MeshComponent);
+    WidgetComponent->SetupAttachment(RootComponent);
 
     // Configure widget settings
     WidgetComponent->SetDrawAtDesiredSize(true);
@@ -26,6 +28,7 @@ AHackerMonitor::AHackerMonitor()
 
 	// Create Audio Sequence Component
 	AudioSequenceComponent = CreateDefaultSubobject<UAudioSequenceComponent>(TEXT("AudioSequenceComponent"));	
+	IsActive = false;
 }
 
 void AHackerMonitor::TriggerAudioSequenceForClient(APlayerController* TargetClient, const TArray<int8>& Notes)
@@ -58,6 +61,53 @@ void AHackerMonitor::StopAudioSequence() const
 	if (AudioSequenceComponent)
 	{
 		AudioSequenceComponent->StopSequence();
+	}
+}
+
+void AHackerMonitor::ExecuteAction()
+{
+	Super::ExecuteAction();
+	if (!IsActive)
+	{
+		LoadInputMode();
+	}
+	else
+	{
+		RestoreInputMode();
+	}
+}
+
+void AHackerMonitor::LoadInputMode()
+{
+	IsActive = true;
+	FInputModeGameAndUI InputMode;
+	ACoopGameState* GameStateRef = Cast<ACoopGameState>(GetWorld()->GetGameState());
+	
+	if (AHackerPlayerController* HackerPC = GameStateRef->HackerPlayerController)
+	{
+		AHackerCharacter* CharRef = Cast<AHackerCharacter>(HackerPC->GetPawn());
+		CharRef->LockCharacterMovement();
+		HackerPC->SetInputMode(InputMode);
+		HackerPC->SetViewTargetWithBlend(this, 0.5f);
+		CharRef->GetMesh()->SetVisibility(false);
+		HackerPC->SetShowMouseCursor(true);
+	}
+}
+
+void AHackerMonitor::RestoreInputMode()
+{
+	IsActive = false;
+	FInputModeGameOnly InputMode;
+	ACoopGameState* GameStateRef = Cast<ACoopGameState>(GetWorld()->GetGameState());
+
+	if (AHackerPlayerController* HackerPC = GameStateRef->HackerPlayerController)
+	{
+		ACharacterParentClass* CharRef = Cast<ACharacterParentClass>(HackerPC->GetPawn());
+		CharRef->UnlockCharacterMovement();
+		HackerPC->SetInputMode(InputMode);
+		HackerPC->SetViewTargetWithBlend(CharRef, 0.5f);
+		CharRef->GetMesh()->SetVisibility(true);
+		HackerPC->SetShowMouseCursor(false);
 	}
 }
 

@@ -15,7 +15,7 @@ FENPathDrawer::FENPathDrawer(int32& LayerId, float& ZoomFactor, bool RightPriori
 	this->ConnectionDrawingPolicy = ConnectionDrawingPolicy;
 }
 
-void FENPathDrawer::DrawManhattanWire(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection)
+void FENPathDrawer::DrawManhattanWire(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection)
 {
 	if (!MaxDepthWire--)
 	{
@@ -27,15 +27,15 @@ void FENPathDrawer::DrawManhattanWire(const FVector2D& Start, const FVector2D& S
 		return;
 	}
 
-	const bool SameDirection = FVector2D::DistSquared(StartDirection, EndDirection) < KINDA_SMALL_NUMBER;
-	const bool StraightDirection = FMath::IsNearlyZero(FVector2D::CrossProduct(StartDirection, EndDirection), KINDA_SMALL_NUMBER);
-	const bool ForwardDirection = FVector2D::DotProduct(End - Start, StartDirection) > KINDA_SMALL_NUMBER;
+	const bool SameDirection = FVector2f::DistSquared(StartDirection, EndDirection) < KINDA_SMALL_NUMBER;
+	const bool StraightDirection = FMath::IsNearlyZero(FVector2f::CrossProduct(StartDirection, EndDirection), KINDA_SMALL_NUMBER);
+	const bool ForwardDirection = FVector2f::DotProduct(End - Start, StartDirection) > KINDA_SMALL_NUMBER;
 
-	const float DistanceOrtho = FVector2D::CrossProduct(End - Start, StartDirection);
-	const float DistanceStraight = FVector2D::DotProduct(End - Start, StartDirection);
+	const float DistanceOrtho = FVector2f::CrossProduct(End - Start, StartDirection);
+	const float DistanceStraight = FVector2f::DotProduct(End - Start, StartDirection);
 
-	FVector2D NewStart = Start, NewStartDirection = StartDirection;
-	FVector2D NewEnd = End, NewEndDirection = EndDirection;
+	FVector2f NewStart = Start, NewStartDirection = StartDirection;
+	FVector2f NewEnd = End, NewEndDirection = EndDirection;
 
 	const int32 DirectionAngle = FMath::Sign(DistanceOrtho);
 
@@ -43,12 +43,12 @@ void FENPathDrawer::DrawManhattanWire(const FVector2D& Start, const FVector2D& S
 
 	if (SameDirection)
 	{
-		if ((Start + StartDirection * FVector2D::Distance(Start, End) - End).IsNearlyZero(KINDA_SMALL_NUMBER))
+		if ((Start + StartDirection * FVector2f::Distance(Start, End) - End).IsNearlyZero(KINDA_SMALL_NUMBER))
 		{
 			DrawLine(Start, End);
 			return;
 		}
-		else if (FMath::IsNearlyEqual(FVector2D::DotProduct((End - Start).GetSafeNormal(), StartDirection), -1.0f, KINDA_SMALL_NUMBER))
+		else if (FMath::IsNearlyEqual(FVector2f::DotProduct((End - Start).GetSafeNormal(), StartDirection), -1.0f, KINDA_SMALL_NUMBER))
 		{
 			DebugColor(FLinearColor(0.5f, 0.5f, 0.5f));
 			DrawSimpleRadius(Start, StartDirection, -90, NewStart, NewStartDirection, false);
@@ -56,7 +56,7 @@ void FENPathDrawer::DrawManhattanWire(const FVector2D& Start, const FVector2D& S
 		}
 		else if ((FMath::Abs(End.X - Start.X) < 2 * GetRadiusOffset()) && (FMath::Abs(End.Y - Start.Y)) < 4 * GetRadiusOffset())
 		{
-			const float Multiplier = FVector2D::Distance(Start, End) / 32.0f;
+			const float Multiplier = FVector2f::Distance(Start, End) / 32.0f;
 			DebugColor(FLinearColor(0.5f, 1.0f, 0.0f));
 			DrawSpline(Start, StartDirection * Multiplier, End, EndDirection * Multiplier);
 			return;
@@ -127,7 +127,7 @@ void FENPathDrawer::DrawManhattanWire(const FVector2D& Start, const FVector2D& S
 	DrawManhattanWire(NewStart, NewStartDirection, NewEnd, NewEndDirection);
 }
 
-void FENPathDrawer::DrawSubwayWire(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection)
+void FENPathDrawer::DrawSubwayWire(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection)
 {
 	if (!MaxDepthWire--)
 	{
@@ -142,18 +142,18 @@ void FENPathDrawer::DrawSubwayWire(const FVector2D& Start, const FVector2D& Star
 	const bool StartDirection90 = FMath::IsNearlyEqual(FMath::Abs(StartDirection.X), 1.0f, KINDA_SMALL_NUMBER) || FMath::IsNearlyEqual(FMath::Abs(StartDirection.Y), 1.0f, KINDA_SMALL_NUMBER);
 	const bool EndDirection90 = FMath::IsNearlyEqual(FMath::Abs(EndDirection.X), 1.0f, KINDA_SMALL_NUMBER) || FMath::IsNearlyEqual(FMath::Abs(EndDirection.Y), 1.0f, KINDA_SMALL_NUMBER);
 
-	const bool SameDirection = FVector2D::DistSquared(StartDirection, EndDirection) < KINDA_SMALL_NUMBER;
-	const bool StraightDirection = FMath::IsNearlyZero(FVector2D::CrossProduct(StartDirection, EndDirection), KINDA_SMALL_NUMBER);
-	const bool ForwardDirection = FVector2D::DotProduct(End - Start, StartDirection) > KINDA_SMALL_NUMBER;
+	const bool SameDirection = FVector2f::DistSquared(StartDirection, EndDirection) < KINDA_SMALL_NUMBER;
+	const bool StraightDirection = FMath::IsNearlyZero(FVector2f::CrossProduct(StartDirection, EndDirection), KINDA_SMALL_NUMBER);
+	const bool ForwardDirection = FVector2f::DotProduct(End - Start, StartDirection) > KINDA_SMALL_NUMBER;
 
-	const float DistanceOrtho = FVector2D::CrossProduct(End - Start, StartDirection);
-	const float DistanceStraight = FVector2D::DotProduct(End - Start, StartDirection);
+	const float DistanceOrtho = FVector2f::CrossProduct(End - Start, StartDirection);
+	const float DistanceStraight = FVector2f::DotProduct(End - Start, StartDirection);
 	const float DirectionOffset = (FMath::Abs(End.X - Start.X) - FMath::Abs(End.Y - Start.Y)) * (FMath::IsNearlyEqual(FMath::Abs(StartDirection.X), 1.0f, KINDA_SMALL_NUMBER) ? 1 : -1);
 
 	const int32 DirectionAngle = FMath::Sign(DistanceOrtho);
 
-	FVector2D NewStart = Start, NewStartDirection = StartDirection;
-	FVector2D NewEnd = End, NewEndDirection = EndDirection;
+	FVector2f NewStart = Start, NewStartDirection = StartDirection;
+	FVector2f NewEnd = End, NewEndDirection = EndDirection;
 
 	DebugColor(FLinearColor(1.0f, 1.0f, 1.0f));
 
@@ -171,17 +171,17 @@ void FENPathDrawer::DrawSubwayWire(const FVector2D& Start, const FVector2D& Star
 	}
 	else if (SameDirection)
 	{
-		if ((Start + StartDirection * FVector2D::Distance(Start, End) - End).IsNearlyZero(KINDA_SMALL_NUMBER))
+		if ((Start + StartDirection * FVector2f::Distance(Start, End) - End).IsNearlyZero(KINDA_SMALL_NUMBER))
 		{
 			DrawLine(Start, End);
 			return;
 		}
-		else if (FVector2D::Distance(Start, End) < 4 * GetRadiusOffset())
+		else if (FVector2f::Distance(Start, End) < 4 * GetRadiusOffset())
 		{
 			DrawManhattanWire(Start, StartDirection, End, EndDirection);
 			return;
 		}
-		else if (FMath::IsNearlyEqual(FVector2D::DotProduct((End - Start).GetSafeNormal(), StartDirection), -1.0f, KINDA_SMALL_NUMBER))
+		else if (FMath::IsNearlyEqual(FVector2f::DotProduct((End - Start).GetSafeNormal(), StartDirection), -1.0f, KINDA_SMALL_NUMBER))
 		{
 			DebugColor(FLinearColor(0.5f, 0.5f, 0.5f));
 			DrawSimpleRadius(Start, StartDirection, -90, NewStart, NewStartDirection, false);
@@ -249,7 +249,7 @@ void FENPathDrawer::DrawSubwayWire(const FVector2D& Start, const FVector2D& Star
 	DrawSubwayWire(NewStart, NewStartDirection, NewEnd, NewEndDirection);
 }
 
-void FENPathDrawer::DrawDefaultWire(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection)
+void FENPathDrawer::DrawDefaultWire(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection)
 {
 	const float Tangent = (End - Start).Size();
 
@@ -262,7 +262,7 @@ void FENPathDrawer::DrawDefaultWire(const FVector2D& Start, const FVector2D& Sta
 	ConnectionDrawingPolicy->ENDrawBubbles(Start, StartDirection * Tangent, End, EndDirection * Tangent);
 }
 
-void FENPathDrawer::DrawIntersectionRadius(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection)
+void FENPathDrawer::DrawIntersectionRadius(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection)
 {
 	const int32 AngleDeg = FMath::RoundToInt(FMath::UnwindDegrees(FMath::RadiansToDegrees(FMath::Atan2(StartDirection.Y, StartDirection.X) - FMath::Atan2(EndDirection.Y, EndDirection.X))));
 
@@ -270,10 +270,10 @@ void FENPathDrawer::DrawIntersectionRadius(const FVector2D& Start, const FVector
 	const float EndOffset = GetIntersectionOffset(AngleDeg, true);
 
 	const float T = (EndDirection.X * (Start.Y - End.Y) - EndDirection.Y * (Start.X - End.X)) / (-EndDirection.X * StartDirection.Y + StartDirection.X * EndDirection.Y);
-	const FVector2D Intersection = Start + T * StartDirection;
+	const FVector2f Intersection = Start + T * StartDirection;
 
-	const FVector2D StartStop = Intersection - StartDirection * StartOffset;
-	const FVector2D EndStop = Intersection + EndDirection * EndOffset;
+	const FVector2f StartStop = Intersection - StartDirection * StartOffset;
+	const FVector2f EndStop = Intersection + EndDirection * EndOffset;
 
 	DebugColor(FLinearColor(1.0f, 1.0f, 1.0f));
 	DrawLine(Start, StartStop);
@@ -285,15 +285,15 @@ void FENPathDrawer::DrawIntersectionRadius(const FVector2D& Start, const FVector
 	DrawLine(EndStop, End);
 }
 
-void FENPathDrawer::DrawIntersectionDiagRadius(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection)
+void FENPathDrawer::DrawIntersectionDiagRadius(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection)
 {
 	const float DirectionOffset = FMath::Abs(End.X - Start.X) - FMath::Abs(End.Y - Start.Y);
 
-	FVector2D NewStart = Start;
-	FVector2D NewEnd = End;
+	FVector2f NewStart = Start;
+	FVector2f NewEnd = End;
 
-	FVector2D NewStartClose, NewStartCloseDirection;
-	FVector2D NewEndClose, NewEndCloseDirection;
+	FVector2f NewStartClose, NewStartCloseDirection;
+	FVector2f NewEndClose, NewEndCloseDirection;
 
 	int32 Direction;
 
@@ -302,11 +302,11 @@ void FENPathDrawer::DrawIntersectionDiagRadius(const FVector2D& Start, const FVe
 		Direction = FMath::RoundToInt(FMath::Sign(End.Y - Start.Y) * StartDirection.X);
 		if (DirectionOffset > 0)
 		{
-			NewStart += FVector2D(1.0f, 0.0f) * DirectionOffset * StartDirection.X;
+			NewStart += FVector2f(1.0f, 0.0f) * DirectionOffset * StartDirection.X;
 		}
 		else
 		{
-			NewEnd += FVector2D(0.0f, 1.0f) * DirectionOffset * FMath::Sign(End.Y - Start.Y);
+			NewEnd += FVector2f(0.0f, 1.0f) * DirectionOffset * FMath::Sign(End.Y - Start.Y);
 		}
 	}
 	else
@@ -315,11 +315,11 @@ void FENPathDrawer::DrawIntersectionDiagRadius(const FVector2D& Start, const FVe
 
 		if (DirectionOffset > 0)
 		{
-			NewEnd -= FVector2D(1.0f, 0.0f) * DirectionOffset * EndDirection.X;
+			NewEnd -= FVector2f(1.0f, 0.0f) * DirectionOffset * EndDirection.X;
 		}
 		else
 		{
-			NewStart -= FVector2D(0.0f, 1.0f) * DirectionOffset * FMath::Sign(End.Y - Start.Y);
+			NewStart -= FVector2f(0.0f, 1.0f) * DirectionOffset * FMath::Sign(End.Y - Start.Y);
 		}
 	}
 
@@ -335,11 +335,11 @@ void FENPathDrawer::DrawIntersectionDiagRadius(const FVector2D& Start, const FVe
 	DrawLine(NewStartClose, NewEndClose);
 }
 
-void FENPathDrawer::DrawSimpleRadius(const FVector2D& Start, const FVector2D& StartDirection, const int32& AngleDeg, FVector2D& out_End, FVector2D& out_EndDirection, bool Backward)
+void FENPathDrawer::DrawSimpleRadius(const FVector2f& Start, const FVector2f& StartDirection, const int32& AngleDeg, FVector2f& out_End, FVector2f& out_EndDirection, bool Backward)
 {
 	const float StartOffset = GetRadiusOffset(AngleDeg, false);
 	const float PerpendicularOffset = GetRadiusOffset(AngleDeg, true);
-	const FVector2D PerpendicularDirection = StartDirection.GetRotated(FMath::Sign(AngleDeg) * 90);
+	const FVector2f PerpendicularDirection = StartDirection.GetRotated(FMath::Sign(AngleDeg) * 90);
 	out_EndDirection = StartDirection.GetRotated(AngleDeg);
 
 	if (Backward)
@@ -354,12 +354,12 @@ void FENPathDrawer::DrawSimpleRadius(const FVector2D& Start, const FVector2D& St
 	}
 }
 
-void FENPathDrawer::DrawUTurn(const FVector2D& Start, const FVector2D& StartDirection, float Direction, FVector2D& out_End, FVector2D& out_EndDirection, bool Backward)
+void FENPathDrawer::DrawUTurn(const FVector2f& Start, const FVector2f& StartDirection, float Direction, FVector2f& out_End, FVector2f& out_EndDirection, bool Backward)
 {
 	const float BackwardDirection = Backward ? -1.0f : 1.0f;
 
-	const FVector2D MidDirection = StartDirection.GetRotated(FMath::Sign(Direction) * 90 * BackwardDirection);
-	const FVector2D Mid = Start + (StartDirection + MidDirection) * GetRadiusOffset() * BackwardDirection;
+	const FVector2f MidDirection = StartDirection.GetRotated(FMath::Sign(Direction) * 90 * BackwardDirection);
+	const FVector2f Mid = Start + (StartDirection + MidDirection) * GetRadiusOffset() * BackwardDirection;
 
 	out_EndDirection = -StartDirection;
 	out_End = Start + MidDirection * 2.0f * GetRadiusOffset() * BackwardDirection;
@@ -376,10 +376,10 @@ void FENPathDrawer::DrawUTurn(const FVector2D& Start, const FVector2D& StartDire
 	}
 }
 
-void FENPathDrawer::DrawCorrectionOrtho(const FVector2D& Start, const FVector2D& StartDirection, const float& Displacement, FVector2D& out_End, FVector2D& out_EndDirection, bool Backward)
+void FENPathDrawer::DrawCorrectionOrtho(const FVector2f& Start, const FVector2f& StartDirection, const float& Displacement, FVector2f& out_End, FVector2f& out_EndDirection, bool Backward)
 {
 	out_EndDirection = StartDirection;
-	const FVector2D StartDirectionOrtho = StartDirection.GetRotated(90);
+	const FVector2f StartDirectionOrtho = StartDirection.GetRotated(90);
 
 	if (Backward)
 	{
@@ -479,9 +479,9 @@ float FENPathDrawer::GetIntersectionOffset(const int32& AngleDeg, bool Diagonal)
 	return IntersectionOffset * ZoomFactor * ElectronicNodesSettings.RoundRadius;
 }
 
-void FENPathDrawer::DrawOffset(FVector2D& Start, FVector2D& StartDirection, const float& Offset, bool Backward)
+void FENPathDrawer::DrawOffset(FVector2f& Start, FVector2f& StartDirection, const float& Offset, bool Backward)
 {
-	FVector2D NewStart = Start;
+	FVector2f NewStart = Start;
 
 	if (Backward)
 	{
@@ -497,7 +497,7 @@ void FENPathDrawer::DrawOffset(FVector2D& Start, FVector2D& StartDirection, cons
 	Start = NewStart;
 }
 
-void FENPathDrawer::DrawLine(const FVector2D& Start, const FVector2D& End)
+void FENPathDrawer::DrawLine(const FVector2f& Start, const FVector2f& End)
 {
 	if (FMath::IsNearlyZero((End - Start).SizeSquared(), KINDA_SMALL_NUMBER))
 	{
@@ -505,18 +505,18 @@ void FENPathDrawer::DrawLine(const FVector2D& Start, const FVector2D& End)
 	}
 
 	FSlateDrawElement::MakeDrawSpaceSpline(*DrawElementsList, LayerId,
-	                                       Start, FVector2D::ZeroVector, End, FVector2D::ZeroVector,
+	                                       Start, FVector2f::ZeroVector, End, FVector2f::ZeroVector,
 	                                       Params->WireThickness * ElectronicNodesSettings.WireThickness, ESlateDrawEffect::None, WireColor);
 
 	ConnectionDrawingPolicy->ENComputeClosestPoint(Start, End);
-	ConnectionDrawingPolicy->ENDrawBubbles(Start, FVector2D::ZeroVector, End, FVector2D::ZeroVector);
-	if (FVector2D::DistSquared(Start, End) > 50.0f)
+	ConnectionDrawingPolicy->ENDrawBubbles(Start, FVector2f::ZeroVector, End, FVector2f::ZeroVector);
+	if (FVector2f::DistSquared(Start, End) > 50.0f)
 	{
 		ConnectionDrawingPolicy->ENDrawArrow(Start, End);
 	}
 }
 
-void FENPathDrawer::DrawRadius(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection, const int32& AngleDeg)
+void FENPathDrawer::DrawRadius(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection, const int32& AngleDeg)
 {
 	const float Tangent = GetRadiusTangent(AngleDeg);
 	const float Offset = GetRadiusOffset(AngleDeg);
@@ -528,7 +528,7 @@ void FENPathDrawer::DrawRadius(const FVector2D& Start, const FVector2D& StartDir
 	ConnectionDrawingPolicy->ENDrawBubbles(Start, StartDirection * Offset, End, EndDirection * Offset);
 }
 
-void FENPathDrawer::DrawSpline(const FVector2D& Start, const FVector2D& StartDirection, const FVector2D& End, const FVector2D& EndDirection)
+void FENPathDrawer::DrawSpline(const FVector2f& Start, const FVector2f& StartDirection, const FVector2f& End, const FVector2f& EndDirection)
 {
 	const float Tangent = GetRadiusTangent();
 

@@ -7,6 +7,7 @@
 #include "Components/TimelineComponent.h"
 #include "MovingDoor.generated.h"
 
+class UAudioComponent;
 UENUM(BlueprintType)
 enum class EDoorOpenAxis : uint8
 {
@@ -20,6 +21,7 @@ enum class EDoorType : uint8
 {
 	Door UMETA(DisplayName="Door"),
 	Gate UMETA(DisplayName="Blocking Gate"),
+	DoubleSlide UMETA(DisplayName="Double Slide"),
 };
 
 UCLASS()
@@ -33,7 +35,7 @@ public:
 	
 	// Close and open door funtions
 	void CloseDoor();
-	void OpenDoor();
+	virtual void OpenDoor();
 
 	bool IsOpen();
 
@@ -42,6 +44,14 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	void HandleDoorToggle();
+	UFUNCTION()
+	virtual void PlayEndTimelineSound () const;
+	UFUNCTION()
+	void PlayBeginTimelineSound () const;
+
+	UPROPERTY(Replicated, EditAnywhere, Category = "Door animation", ReplicatedUsing = OnRep_IsOpen)
+	bool bIsOpen;		// Open/Close door status
 
 public:	
 	// Called every frame
@@ -60,6 +70,9 @@ public:
 
 	// Timeline
 	FTimeline DoorTimeline;
+	FOnTimelineEvent OnTimelineFinished;
+	FOnTimelineEvent OnTimelineStarted;
+
 
 	// Speed of the door opening/closing animation
 	UPROPERTY(EditAnywhere, Category = "Door animation")
@@ -84,11 +97,19 @@ private:
 
 	UFUNCTION()
 	void HandleAlarmChanged(bool bNewState);
-
-	UPROPERTY(Replicated, EditAnywhere, Category = "Door animation")
-	bool bIsOpen;		// Open/Close door status
-
+	UFUNCTION()
+	void OnRep_IsOpen();
 	// Door Locations
 	FVector ClosedLocation;
 	FVector OpenLocation;
+
+
+	UPROPERTY(EditDefaultsOnly)
+	UAudioComponent* AudioComponent;
+
+	UPROPERTY(EditAnywhere, Category = "Sounds")
+	USoundBase* OpenDoorSound;
+	UPROPERTY(EditAnywhere, Category= "Sounds")
+	USoundBase* CloseDoorSound;
+	
 };

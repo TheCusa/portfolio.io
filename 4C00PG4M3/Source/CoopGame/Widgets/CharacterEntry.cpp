@@ -6,17 +6,33 @@
 #include "Components/Image.h"
 #include "CoopGame/Characters/CharacterDefinition.h"
 
-void UCharacterEntry::SetCharacterSelected(bool bIsSelected)
+void UCharacterEntry::SetCharacterSelected(const bool bIsSelected) const
 {
-	// Non disabilitare completamente l'entry per permettere la deselezione
-	// Solo cambia l'aspetto visivo
-	IconImage->GetDynamicMaterial()->SetScalarParameterValue(SaturationMaterialParamName, bIsSelected ? 0.3f : 1.0f);
-
-	// Opzionale: cambia il colore del testo per indicare la selezione
+	if (IconImage && IconImage->GetDynamicMaterial())
+	{
+		IconImage->GetDynamicMaterial()->SetScalarParameterValue(SaturationMaterialParamName, bIsSelected ? 0.3f : 1.0f);
+	}
+	
 	if (NameText)
 	{
-		FLinearColor TextColor = bIsSelected ? FLinearColor(0.5f, 0.5f, 0.5f, 1.0f) : FLinearColor::White;
+		const FLinearColor TextColor = bIsSelected ? FLinearColor(0.5f, 0.5f, 0.5f, 1.0f) : FLinearColor::White;
 		NameText->SetColorAndOpacity(FSlateColor(TextColor));
+	}
+}
+
+void UCharacterEntry::SetOwningPlayerName(const FString& PlayerName) const
+{
+	if (PlayerNameText)
+	{
+		if (!PlayerName.IsEmpty())
+		{
+			PlayerNameText->SetText(FText::FromString(PlayerName));
+			PlayerNameText->SetVisibility(ESlateVisibility::HitTestInvisible);
+		}
+		else
+		{
+			PlayerNameText->SetVisibility(ESlateVisibility::Collapsed);
+		}
 	}
 }
 
@@ -24,10 +40,14 @@ void UCharacterEntry::NativeOnListItemObjectSet(UObject* ListItemObject)
 {
 	IUserObjectListEntry::NativeOnListItemObjectSet(ListItemObject);
 
-	UCharacterDefinition* characterDefinition = Cast<UCharacterDefinition>(ListItemObject);
-	if (characterDefinition)
+	const UCharacterDefinition* CharacterDefinition = Cast<UCharacterDefinition>(ListItemObject);
+	if (CharacterDefinition)
 	{
-		NameText->SetText(FText::FromName(characterDefinition->CharacterName));
-		IconImage->GetDynamicMaterial()->SetTextureParameterValue(IconMaterialParamName, characterDefinition->Icon);
+		NameText->SetText(FText::FromName(CharacterDefinition->CharacterName));
+		if (IconImage && IconImage->GetDynamicMaterial())
+		{
+			IconImage->GetDynamicMaterial()->SetTextureParameterValue(IconMaterialParamName, CharacterDefinition->Icon);
+		}
 	}
+	SetOwningPlayerName(FString());
 }

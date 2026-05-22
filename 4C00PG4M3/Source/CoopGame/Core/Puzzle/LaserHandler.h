@@ -6,9 +6,9 @@
 #include "GameFramework/Actor.h"
 #include "LaserHandler.generated.h"
 
-
+class UStaticMeshComponent;
 class UBoxComponent;
-class ARespawnPoint;
+
 UCLASS()
 class COOPGAME_API ALaserHandler : public AActor
 {
@@ -21,29 +21,27 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-public:	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Laser")
-	UStaticMeshComponent* LaserMesh;
-	
-private:
-	UPROPERTY(EditAnywhere)
-	UBoxComponent* Collider;
-
-	UPROPERTY()
-	ARespawnPoint* RespawnPointRef;
-
-	UPROPERTY(EditAnywhere)
-	bool bIsReal;
-
 	UFUNCTION()
-	void OnBeginOverlap(
+	virtual void OnBeginOverlap(
 		UPrimitiveComponent* OverlappedComp,
 		AActor* OtherActor,
 		UPrimitiveComponent* OtherComp,
 		int32 OtherBodyIndex,
 		bool bFromSweep,
 		const FHitResult& SweepResult);
+	UPROPERTY(EditDefaultsOnly, Category="Laser")
+	TObjectPtr<UStaticMeshComponent> LaserMesh;
+	
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UBoxComponent> Collider;
 
-	void HandleCollision(AActor*);
+	//UPROPERTY()
+	//ARespawnPoint* RespawnPointRef;
+
+	UPROPERTY(EditDefaultsOnly)
+	bool bIsReal;
+
+	
+
+	 void HandleCollision(AActor*, UPrimitiveComponent*);
 };

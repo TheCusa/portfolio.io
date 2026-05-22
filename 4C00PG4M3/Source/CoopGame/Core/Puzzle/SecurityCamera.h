@@ -6,10 +6,13 @@
 #include "GameFramework/Actor.h"
 #include "SecurityCamera.generated.h"
 
+class ARenderTargetPoolManager;
+
 UCLASS()
 class COOPGAME_API ASecurityCamera : public AActor
 {
 	GENERATED_BODY()
+private:
 
 public:	
 	// Sets default values for this actor's properties
@@ -29,5 +32,7 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly)
 	TObjectPtr<UStaticMeshComponent> CameraStaticMeshComponent;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Security Camera")
+	TSubclassOf<ARenderTargetPoolManager> RenderTargetPoolManager = nullptr;
 };

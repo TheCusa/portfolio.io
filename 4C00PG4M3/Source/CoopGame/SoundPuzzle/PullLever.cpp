@@ -1,14 +1,10 @@
 #include "PullLever.h"
-
-#include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TimelineComponent.h"
-#include "CoopGame/Characters/Agent/AgentCharacter.h"
 #include "CoopGame/Core/PlayerControllers/AgentPlayerController.h"
 #include "CoopGame/SoundPuzzle/Piano.h"
 #include "Curves/CurveFloat.h"
-
-#include "CoopGame/Core/Puzzle/Utils.h"
+#include "Kismet/GameplayStatics.h"
 
 // Sets default values
 APullLever::APullLever()
@@ -16,11 +12,6 @@ APullLever::APullLever()
 	// Set this actor to call Tick() every frame only when needed
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = false; 
-
-	InteractionCollider = CreateDefaultSubobject<UBoxComponent>(TEXT("Collider Component"));
-
-	// Set box collision component as root component
-	RootComponent = InteractionCollider;
 
 	// Create the mesh component and attach it to root component
 	StaticBaseMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Static Mesh Component"));
@@ -36,7 +27,6 @@ APullLever::APullLever()
 	// Initialize animation properties
 	LeverPullAngle = 45.0f;
 	bIsAnimating = false;
-
 }
 
 void APullLever::ExecuteAction()
@@ -46,23 +36,26 @@ void APullLever::ExecuteAction()
 		return;
 	}
 
-	// Start lever animation
+	// Start lever animation and playing sound
 	if (LeverTimeline && LeverCurve)
 	{
 		bIsAnimating = true;
 		SetActorTickEnabled(true);
 		LeverTimeline->PlayFromStart();
+		UGameplayStatics::PlaySoundAtLocation(this,LeverSound, GetActorLocation(), FRotator::ZeroRotator);
 	}
 
 	if (AgentPlayerControllerRef && PianoReference)
 	{
 		const TArray<int8> PuzzleSolution = PianoReference->GetPuzzleSolution();
 		AgentPlayerControllerRef->SendArrayCode(PuzzleSolution, GameUserWidget::None);
-		
+
+#if !UE_BUILD_SHIPPING
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("SendPuzzleSolution Piano"));
 		}
+#endif
 	}
 }
 
@@ -81,9 +74,6 @@ void APullLever::Tick(float DeltaTime)
 void APullLever::BeginPlay()
 {
 	Super::BeginPlay();
-
-	InteractionCollider->OnComponentBeginOverlap.AddDynamic(this, &APullLever::OnInteractionBoxOverlapBegin);
-	InteractionCollider->OnComponentEndOverlap.AddDynamic(this, &APullLever::OnInteractionBoxOverlapEnd);
 
 	GameStateRef = GetWorld()->GetGameState<ACoopGameState>();
 	if (GameStateRef)
@@ -151,47 +141,5 @@ void APullLever::TimelineFinished()
 			bIsAnimating = false;
 			SetActorTickEnabled(false);
 		}
-	}
-}
-
-void APullLever::OnInteractionBoxOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	if (!OtherActor || (OtherActor == this))
-	{
-		return;
-	}
-
-	AAgentCharacter* OverlapCharacter = Cast<AAgentCharacter>(OtherActor);
-	if (OverlapCharacter)
-	{
-		// Check if OverlapCharacter is the local player. It's needed to execute this event only in local
-		if (!OverlapCharacter->IsLocallyControlled())
-		{
-			return;
-		}
-		//UE_LOG(LogTemp, Warning, TEXT("BEGIN OVERLAP"));
-		OverlapCharacter->SetNearbyInteractableObject(this);
-	}
-}
-
-void APullLever::OnInteractionBoxOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-	int32 OtherBodyIndex)
-{
-	if (!OtherActor || (OtherActor == this))
-	{
-		return;
-	}
-
-	AAgentCharacter* OverlapCharacter = Cast<AAgentCharacter>(OtherActor);
-	if (OverlapCharacter)
-	{
-		// Check if OverlapCharacter is the local player. It's needed to execute this event only in local
-		if (!OverlapCharacter->IsLocallyControlled())
-		{
-			return;
-		}
-		//UE_LOG(LogTemp, Warning, TEXT("END OVERLAP"));
-		OverlapCharacter->ClearNearbyInteractableObject(this);
 	}
 }
